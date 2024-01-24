@@ -1,0 +1,16 @@
+{
+  "name": "pHTTP-exit-app",
+  "version": "1.0.0",
+  "description": "privateHTTP exit application",
+  "main": "src/index.ts",
+  "license": "MIT",
+  "private": false,
+    "scripts": {
+        "build": "tsc",
+        "format": "prettier --write src/ .github/ .eslintrc.js .prettierrc.js jest.config.ts package.json tsconfig.json",
+        "format:ci": "prettier --check src/ .github/ .eslintrc.js .prettierrc.js jest.config.ts package.json tsconfig.json",
+        "lint": "eslint --fix src/",
+        "lint:ci": "eslint --max-warnings 0 src/",
+        "test": "jest --coverage"
+    }
+}
