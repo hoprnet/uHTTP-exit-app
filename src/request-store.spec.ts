@@ -2,7 +2,7 @@ import * as reqStore from './request-store';
 
 let store: reqStore.RequestStore;
 
-describe('pHTTP request store', function () {
+describe('RPCh request store', function () {
     beforeEach(async () => {
         // setup fluent database on disk
         store = await reqStore.setup('');

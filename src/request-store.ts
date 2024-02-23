@@ -1,7 +1,4 @@
 import sqlite3 from 'sqlite3';
-//import { Result as Res } from '@pHTTP/sdk';
-
-// const log = Utils.logger(['exit-node', 'request-store']);
 
 export type RequestStore = {
     db: sqlite3.Database;

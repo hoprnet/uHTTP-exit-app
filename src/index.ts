@@ -1,8 +1,5 @@
-import * as path from 'path';
 import WS from 'isomorphic-ws';
-import { utils } from 'ethers';
 
-import * as Identity from './identity';
 import * as RequestStore from './request-store';
 import Version from './version';
 import {
@@ -10,14 +7,14 @@ import {
     ExitNode,
     NodeAPI,
     Payload,
-    ProviderAPI,
+    EndpointAPI,
     Request,
     Response,
     Result as Res,
     Segment,
     SegmentCache,
     Utils,
-} from '@pHTTP/sdk';
+} from '@rpch/sdk';
 
 const log = Utils.logger(['exit-node']);
 
@@ -29,8 +26,8 @@ const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
 
 type State = {
     socket?: WS.WebSocket;
-    publicKey: string;
     privateKey: Uint8Array;
+    publicKey: Uint8Array;
     peerId: string;
     cache: SegmentCache.Cache;
     deleteTimer: Map<string, ReturnType<typeof setTimeout>>; // deletion timer of requests in segment cache
@@ -39,9 +36,8 @@ type State = {
 };
 
 type Ops = {
-    privateKey?: Uint8Array;
-    identityFile: string;
-    password?: string;
+    privateKey: string;
+    publicKey: string;
     apiEndpoint: URL;
     accessToken: string;
     discoveryPlatformEndpoint: string;
@@ -80,19 +76,6 @@ async function setup(ops: Ops): Promise<State> {
 
     log.verbose('set up DB at', ops.dbFile);
 
-    const resId = await Identity.getIdentity({
-        identityFile: ops.identityFile,
-        password: ops.password,
-        privateKey: ops.privateKey,
-    }).catch((err: Error) => {
-        log.error('error accessing identity: %s[%o]', JSON.stringify(err), err);
-    });
-    if (!resId) {
-        return Promise.reject();
-    }
-
-    log.verbose('got identity', resId.publicKey);
-
     const resPeerId = await NodeAPI.accountAddresses(ops).catch((err: Error) => {
         log.error('error fetching account addresses: %s[%o]', JSON.stringify(err), err);
     });
@@ -105,7 +88,7 @@ async function setup(ops: Ops): Promise<State> {
     const deleteTimer = new Map();
 
     const logOpts = {
-        identityFile: ops.identityFile,
+        publicKey: ops.publicKey,
         apiEndpoint: ops.apiEndpoint,
         discoveryPlatformEndpoint: ops.discoveryPlatformEndpoint,
     };
@@ -114,9 +97,9 @@ async function setup(ops: Ops): Promise<State> {
     return {
         cache,
         deleteTimer,
-        privateKey: utils.arrayify(resId.privateKey),
+        privateKey: Utils.hexStringToUint8Array(ops.privateKey),
+        publicKey: Utils.hexStringToUint8Array(ops.publicKey),
         peerId,
-        publicKey: resId.publicKey,
         requestStore,
         relays: [],
     };
@@ -302,13 +285,13 @@ function onInfoReq(state: State, ops: Ops, msg: Msg) {
     const [, recipient, hopsStr, reqRel] = msg.body.split('-');
     const hops = parseInt(hopsStr, 10);
     const conn = { ...ops, hops };
-    const shRelays =
+    const relayShortIds =
         reqRel === 'r' ? state.relays.map((rId) => Utils.shortPeerId(rId).substring(1)) : undefined;
     const info = {
         peerId: state.peerId,
         counter: Date.now(),
         version: Version,
-        shRelays,
+        relayShortIds,
     };
     const res = Payload.encodeInfo(info);
     if (Res.isErr(res)) {
@@ -346,9 +329,9 @@ async function completeSegmentsEntry(
     }
 
     const [hexEntryId, hexData] = msgParts;
-    const entryIdData = utils.arrayify(hexEntryId);
-    const entryPeerId = utils.toUtf8String(entryIdData);
-    const reqData = utils.arrayify(hexData);
+    const entryIdData = Utils.hexStringToUint8Array(hexEntryId);
+    const entryPeerId = Utils.uint8ArrayToUTF8String(entryIdData);
+    const reqData = Utils.hexStringToUint8Array(hexData);
 
     const resReq = Request.messageToReq({
         requestId,
@@ -374,7 +357,7 @@ async function completeSegmentsEntry(
     if (counter < valid) {
         log.info('counter %d outside valid period %d (now: %d)', counter, valid, now);
         // counter fail resp
-        return sendResponse(sendParams, { type: Payload.RespType.CounterFail, now });
+        return sendResponse(sendParams, { type: Payload.RespType.CounterFail, counter: now });
     }
 
     // check uuid
@@ -386,17 +369,18 @@ async function completeSegmentsEntry(
     }
 
     // do RPC request
-    const { provider, req, headers } = reqPayload;
+    const { endpoint, body, method, headers } = reqPayload;
+    const params = { body, method, headers };
     const fetchStartedAt = performance.now();
-    const resFetch = await ProviderAPI.fetchRPC(provider, req, headers).catch((err: Error) => {
+    const resFetch = await EndpointAPI.fetchURL(endpoint, params).catch((err: Error) => {
         log.error(
-            'error doing JRPC on %s with %o: %s[%o]',
-            provider,
-            req,
+            'error doing RPC req on %s with %o: %s[%o]',
+            endpoint,
+            params,
             JSON.stringify(err),
             err,
         );
-        // rpc critical fail response
+        // HTTP critical fail response
         const resp: Payload.RespPayload = {
             type: Payload.RespType.Error,
             reason: JSON.stringify(err),
@@ -410,12 +394,12 @@ async function completeSegmentsEntry(
     const fetchDur = Math.round(performance.now() - fetchStartedAt);
     // http fail response
     if (Res.isErr(resFetch)) {
-        const { status, message: text } = resFetch.error;
-        const resp: Payload.RespPayload = { type: Payload.RespType.HttpError, status, text };
+        const resp: Payload.RespPayload = { type: Payload.RespType.Error, reason: resFetch.error };
         return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
     }
 
-    const resp: Payload.RespPayload = { type: Payload.RespType.Resp, resp: resFetch.res };
+    const { status, text } = resFetch.res;
+    const resp: Payload.RespPayload = { type: Payload.RespType.Resp, status, text };
     return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
 }
 
@@ -440,19 +424,18 @@ function determineRelay(state: State, { hops, relayPeerId }: Payload.ReqPayload)
  * The exit node will send tracked latency back if requested.
  */
 function addLatencies(
-    { wDur }: Payload.ReqPayload,
+    { withDuration }: Payload.ReqPayload,
     resp: Payload.RespPayload,
     { fetchDur, recvAt }: { fetchDur: number; recvAt: number },
 ): Payload.RespPayload {
-    if (!wDur) {
+    if (!withDuration) {
         return resp;
     }
     switch (resp.type) {
-        case Payload.RespType.Resp:
-        case Payload.RespType.HttpError: {
+        case Payload.RespType.Resp: {
             const dur = Math.round(performance.now() - recvAt);
-            resp.rDur = fetchDur;
-            resp.eDur = dur - fetchDur;
+            resp.callDuration = fetchDur;
+            resp.exitNodeDuration = dur - fetchDur;
             return resp;
         }
         default:
@@ -533,7 +516,7 @@ function sendResponse(
         const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
         const quotaRequest: DPapi.QuotaParams = {
             clientId: reqPayload.clientId,
-            rpcMethod: reqPayload.req.method,
+            rpcMethod: reqPayload.method,
             segmentCount: cacheEntry.count,
             lastSegmentLength: lastReqSeg.body.length,
             type: 'request',
@@ -542,7 +525,7 @@ function sendResponse(
         const lastRespSeg = segments[segments.length - 1];
         const quotaResponse: DPapi.QuotaParams = {
             clientId: reqPayload.clientId,
-            rpcMethod: reqPayload.req.method,
+            rpcMethod: reqPayload.method,
             segmentCount: segments.length,
             lastSegmentLength: lastRespSeg.body.length,
             type: 'response',
@@ -559,10 +542,12 @@ function sendResponse(
 
 // if this file is the entrypoint of the nodejs process
 if (require.main === module) {
-    if (!process.env.pHTTP_PRIVATE_KEY && !process.env.pHTTP_PASSWORD) {
-        throw new Error("Missing 'pHTTP_PRIVATE_KEY' or 'pHTTP_PASSWORD' env var.");
+    if (!process.env.RPCH_PRIVATE_KEY) {
+        throw new Error("Missing 'RPCH_PRIVATE_KEY' env var.");
     }
-
+    if (!process.env.RPCH_PUBLIC_KEY) {
+        throw new Error("Missing 'RPCH_PUBLIC_KEY' env var.");
+    }
     if (!process.env.HOPRD_API_ENDPOINT) {
         throw new Error("Missing 'HOPRD_API_ENDPOINT' env var.");
     }
@@ -575,22 +560,17 @@ if (require.main === module) {
     if (!process.env.DISCOVERY_PLATFORM_ACCESS_TOKEN) {
         throw new Error("Missing 'DISCOVERY_PLATFORM_ACCESS_TOKEN' env var.");
     }
-    if (!process.env.pHTTP_DB_FILE) {
-        throw new Error('Missing pHTTP_DB_FILE env var.');
+    if (!process.env.RPCH_DB_FILE) {
+        throw new Error('Missing RPCH_DB_FILE env var.');
     }
-    const identityFile = process.env.pHTTP_IDENTITY_FILE || path.join(process.cwd(), '.identity');
-    const privateKey = process.env.pHTTP_PRIVATE_KEY
-        ? utils.arrayify(process.env.pHTTP_PRIVATE_KEY)
-        : undefined;
 
     start({
-        privateKey,
-        identityFile,
-        password: process.env.pHTTP_PASSWORD,
+        privateKey: process.env.RPCH_PRIVATE_KEY,
+        publicKey: process.env.RPCH_PUBLIC_KEY,
         apiEndpoint: new URL(process.env.HOPRD_API_ENDPOINT),
         accessToken: process.env.HOPRD_API_TOKEN,
         discoveryPlatformEndpoint: process.env.DISCOVERY_PLATFORM_API_ENDPOINT,
         nodeAccessToken: process.env.DISCOVERY_PLATFORM_ACCESS_TOKEN,
-        dbFile: process.env.pHTTP_DB_FILE,
+        dbFile: process.env.RPCH_DB_FILE,
     });
 }
