@@ -1,11 +1,11 @@
 import WS from 'isomorphic-ws';
 
+import * as NodeAPI from './node-api';
 import * as RequestStore from './request-store';
 import Version from './version';
 import {
     DPapi,
     ExitNode,
-    NodeAPI,
     Payload,
     EndpointAPI,
     Request,

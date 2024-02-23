@@ -6,7 +6,8 @@
     "license": "MIT",
     "private": false,
     "scripts": {
-        "build": "tsc",
+        "prebuild": "node -p \"'export default \\'' + require('./package.json').version + '\\';'\" > src/version.ts",
+        "build": "yarn prebuild && tsc",
         "format": "prettier --write src/ .github/ .eslintrc.js .prettierrc.js jest.config.ts package.json tsconfig.json",
         "format:ci": "prettier --check src/ .github/ .eslintrc.js .prettierrc.js jest.config.ts package.json tsconfig.json",
         "lint": "eslint --fix src/",
@@ -25,5 +26,8 @@
         "ts-jest": "^29.1.2",
         "ts-node": "^10.9.2",
         "typescript": "^5.3.3"
+    },
+    "dependencies": {
+        "isomorphic-ws": "^5.0.0"
     }
 }
