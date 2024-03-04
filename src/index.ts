@@ -3,11 +3,11 @@ import WS from 'isomorphic-ws';
 import * as RequestStore from './request-store';
 import Version from './version';
 import {
-    DPapi,
+    DpApi,
     ExitNode,
-    NodeAPI,
+    NodeApi,
     Payload,
-    EndpointAPI,
+    EndpointApi,
     Request,
     Response,
     Result as Res,
@@ -76,7 +76,7 @@ async function setup(ops: Ops): Promise<State> {
 
     log.verbose('set up DB at', ops.dbFile);
 
-    const resPeerId = await NodeAPI.accountAddresses(ops).catch((err: Error) => {
+    const resPeerId = await NodeApi.accountAddresses(ops).catch((err: Error) => {
         log.error('error fetching account addresses: %s[%o]', JSON.stringify(err), err);
     });
     if (!resPeerId) {
@@ -106,7 +106,7 @@ async function setup(ops: Ops): Promise<State> {
 }
 
 function setupSocket(state: State, ops: Ops) {
-    const socket = NodeAPI.connectWS(ops);
+    const socket = NodeApi.connectWS(ops);
     if (!socket) {
         log.error('error opening websocket');
         process.exit(3);
@@ -158,8 +158,8 @@ function scheduleCleanup(state: State) {
 
 async function setupRelays(state: State, ops: Ops) {
     try {
-        const resPeers = await NodeAPI.getPeers(ops);
-        if (NodeAPI.isError(resPeers)) {
+        const resPeers = await NodeApi.getPeers(ops);
+        if (NodeApi.isError(resPeers)) {
             throw new Error(`node internal: ${JSON.stringify(resPeers)}`);
         }
 
@@ -170,7 +170,7 @@ async function setupRelays(state: State, ops: Ops) {
             )
             .map(({ peerId, peerAddress }) => ({ peerId, peerAddress }));
 
-        const resChannels = await NodeAPI.getNodeChannels(ops);
+        const resChannels = await NodeApi.getNodeChannels(ops);
 
         // open channels
         const openChannelsArr = resChannels.outgoing
@@ -270,7 +270,7 @@ function onPingReq(state: State, ops: Ops, msg: Msg) {
     // ping-originPeerId
     const [, recipient] = msg.body.split('-');
     const conn = { ...ops, hops: 0 };
-    NodeAPI.sendMessage(conn, {
+    NodeApi.sendMessage(conn, {
         recipient,
         tag: msg.tag,
         message: `pong-${state.peerId}`,
@@ -299,7 +299,7 @@ function onInfoReq(state: State, ops: Ops, msg: Msg) {
         return;
     }
     const message = `nfrp-${res.res}`;
-    NodeAPI.sendMessage(conn, {
+    NodeApi.sendMessage(conn, {
         recipient,
         tag: msg.tag,
         message,
@@ -372,7 +372,7 @@ async function completeSegmentsEntry(
     const { endpoint, body, method, headers } = reqPayload;
     const params = { body, method, headers };
     const fetchStartedAt = performance.now();
-    const resFetch = await EndpointAPI.fetchURL(endpoint, params).catch((err: Error) => {
+    const resFetch = await EndpointApi.fetchURL(endpoint, params).catch((err: Error) => {
         log.error(
             'error doing RPC req on %s with %o: %s[%o]',
             endpoint,
@@ -495,7 +495,7 @@ function sendResponse(
 
     // queue segment sending for all of them
     segments.forEach((seg: Segment.Segment) => {
-        NodeAPI.sendMessage(conn, {
+        NodeApi.sendMessage(conn, {
             recipient: entryPeerId,
             tag,
             message: Segment.toMessage(seg),
@@ -514,7 +514,7 @@ function sendResponse(
     // inform DP non blocking
     setTimeout(() => {
         const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
-        const quotaRequest: DPapi.QuotaParams = {
+        const quotaRequest: DpApi.QuotaParams = {
             clientId: reqPayload.clientId,
             rpcMethod: reqPayload.method,
             segmentCount: cacheEntry.count,
@@ -523,7 +523,7 @@ function sendResponse(
         };
 
         const lastRespSeg = segments[segments.length - 1];
-        const quotaResponse: DPapi.QuotaParams = {
+        const quotaResponse: DpApi.QuotaParams = {
             clientId: reqPayload.clientId,
             rpcMethod: reqPayload.method,
             segmentCount: segments.length,
@@ -531,10 +531,10 @@ function sendResponse(
             type: 'response',
         };
 
-        DPapi.fetchQuota(ops, quotaRequest).catch((err) => {
+        DpApi.fetchQuota(ops, quotaRequest).catch((err) => {
             log.error('error recording request quota: %s[%o]', JSON.stringify(err), err);
         });
-        DPapi.fetchQuota(ops, quotaResponse).catch((err) => {
+        DpApi.fetchQuota(ops, quotaResponse).catch((err) => {
             log.error('error recording response quota: %s[%o]', JSON.stringify(err), err);
         });
     });
