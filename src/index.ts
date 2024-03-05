@@ -1,13 +1,10 @@
 import WS from 'isomorphic-ws';
-
-import * as RequestStore from './request-store';
-import Version from './version';
 import {
     DpApi,
+    EndpointApi,
     ExitNode,
     NodeApi,
     Payload,
-    EndpointApi,
     Request,
     Response,
     Result as Res,
@@ -16,7 +13,9 @@ import {
     Utils,
 } from 'pHTTP-lib';
 
-const log = Utils.logger(['exit-node']);
+import log from './logger';
+import * as RequestStore from './request-store';
+import Version from './version';
 
 const SocketReconnectTimeout = 1e3; // 1sek
 const RequestPurgeTimeout = 60e3; // 60sek
@@ -372,7 +371,7 @@ async function completeSegmentsEntry(
     const { endpoint, body, method, headers } = reqPayload;
     const params = { body, method, headers };
     const fetchStartedAt = performance.now();
-    const resFetch = await EndpointApi.fetchURL(endpoint, params).catch((err: Error) => {
+    const resFetch = await EndpointApi.fetchUrl(endpoint, params).catch((err: Error) => {
         log.error(
             'error doing RPC req on %s with %o: %s[%o]',
             endpoint,
@@ -531,10 +530,10 @@ function sendResponse(
             type: 'response',
         };
 
-        DpApi.fetchQuota(ops, quotaRequest).catch((err) => {
+        DpApi.postQuota(ops, quotaRequest).catch((err) => {
             log.error('error recording request quota: %s[%o]', JSON.stringify(err), err);
         });
-        DpApi.fetchQuota(ops, quotaResponse).catch((err) => {
+        DpApi.postQuota(ops, quotaResponse).catch((err) => {
             log.error('error recording response quota: %s[%o]', JSON.stringify(err), err);
         });
     });
