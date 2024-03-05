@@ -12,6 +12,7 @@
         "format:ci": "prettier --check src/ .github/ .eslintrc.js .prettierrc.js jest.config.ts package.json tsconfig.json",
         "lint": "eslint --fix src/",
         "lint:ci": "eslint --max-warnings 0 src/",
+        "start": "node build/index.js",
         "test": "jest --coverage"
     },
     "devDependencies": {
