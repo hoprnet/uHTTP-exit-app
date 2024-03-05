@@ -541,35 +541,35 @@ function sendResponse(
 
 // if this file is the entrypoint of the nodejs process
 if (require.main === module) {
-    if (!process.env.RPCH_PRIVATE_KEY) {
-        throw new Error("Missing 'RPCH_PRIVATE_KEY' env var.");
+    if (!process.env.PHTTP_EA_PRIVATE_KEY) {
+        throw new Error("Missing 'PHTTP_EA_PRIVATE_KEY' env var.");
     }
-    if (!process.env.RPCH_PUBLIC_KEY) {
-        throw new Error("Missing 'RPCH_PUBLIC_KEY' env var.");
+    if (!process.env.PHTTP_EA_PUBLIC_KEY) {
+        throw new Error("Missing 'PHTTP_EA_PUBLIC_KEY' env var.");
     }
-    if (!process.env.HOPRD_API_ENDPOINT) {
-        throw new Error("Missing 'HOPRD_API_ENDPOINT' env var.");
+    if (!process.env.PHTTP_EA_HOPRD_ENDPOINT) {
+        throw new Error("Missing 'PHTTP_EA_HOPRD_ENDPOINT' env var.");
     }
-    if (!process.env.HOPRD_API_TOKEN) {
-        throw new Error("Missing 'HOPRD_API_TOKEN' env var.");
+    if (!process.env.PHTTP_EA_HOPRD_ACCESS_TOKEN) {
+        throw new Error("Missing 'PHTTP_EA_HOPRD_ACCESS_TOKEN' env var.");
     }
-    if (!process.env.DISCOVERY_PLATFORM_API_ENDPOINT) {
-        throw new Error("Missing 'DISCOVERY_PLATFORM_API_ENDPOINT' env var.");
+    if (!process.env.PHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT) {
+        throw new Error("Missing 'PHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT' env var.");
     }
-    if (!process.env.DISCOVERY_PLATFORM_ACCESS_TOKEN) {
-        throw new Error("Missing 'DISCOVERY_PLATFORM_ACCESS_TOKEN' env var.");
+    if (!process.env.PHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN) {
+        throw new Error("Missing 'PHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN' env var.");
     }
-    if (!process.env.RPCH_DB_FILE) {
-        throw new Error('Missing RPCH_DB_FILE env var.');
+    if (!process.env.PHTTP_EA_DATABASE_FILE) {
+        throw new Error("Missing 'PHTTP_EA_DATABASE_FILE' env var.");
     }
 
     start({
-        privateKey: process.env.RPCH_PRIVATE_KEY,
-        publicKey: process.env.RPCH_PUBLIC_KEY,
-        apiEndpoint: new URL(process.env.HOPRD_API_ENDPOINT),
-        accessToken: process.env.HOPRD_API_TOKEN,
-        discoveryPlatformEndpoint: process.env.DISCOVERY_PLATFORM_API_ENDPOINT,
-        nodeAccessToken: process.env.DISCOVERY_PLATFORM_ACCESS_TOKEN,
-        dbFile: process.env.RPCH_DB_FILE,
+        privateKey: process.env.PHTTP_EA_PRIVATE_KEY,
+        publicKey: process.env.PHTTP_EA_PUBLIC_KEY,
+        apiEndpoint: new URL(process.env.PHTTP_EA_HOPRD_ENDPOINT),
+        accessToken: process.env.PHTTP_EA_HOPRD_ACCESS_TOKEN,
+        discoveryPlatformEndpoint: process.env.PHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT,
+        nodeAccessToken: process.env.PHTTP_EA_HOPRD_ACCESS_TOKEN,
+        dbFile: process.env.PHTTP_EA_DATABASE_FILE,
     });
 }
