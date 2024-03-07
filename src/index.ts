@@ -569,7 +569,7 @@ if (require.main === module) {
         apiEndpoint: new URL(process.env.PHTTP_EA_HOPRD_ENDPOINT),
         accessToken: process.env.PHTTP_EA_HOPRD_ACCESS_TOKEN,
         discoveryPlatformEndpoint: process.env.PHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT,
-        nodeAccessToken: process.env.PHTTP_EA_HOPRD_ACCESS_TOKEN,
+        nodeAccessToken: process.env.PHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN,
         dbFile: process.env.PHTTP_EA_DATABASE_FILE,
     });
 }
