@@ -315,10 +315,6 @@ async function completeSegmentsEntry(
     recvAt: number,
 ) {
     const firstSeg = cacheEntry.segments.get(0) as Segment.Segment;
-    if (!firstSeg.body.startsWith('0x')) {
-        log.info('message is not a request:', firstSeg.requestId);
-        return;
-    }
     const requestId = firstSeg.requestId;
     const msg = SegmentCache.toMessage(cacheEntry);
     const msgParts = msg.split(',');
@@ -327,10 +323,9 @@ async function completeSegmentsEntry(
         return;
     }
 
-    const [hexEntryId, hexData] = msgParts;
-    const entryIdData = Utils.hexStringToUint8Array(hexEntryId);
-    const entryPeerId = Utils.uint8ArrayToUTF8String(entryIdData);
-    const reqData = Utils.hexStringToUint8Array(hexData);
+    const [entryPeerId, data] = msgParts;
+    const textEncoder = new TextEncoder();
+    const reqData = textEncoder.encode(data);
 
     const resReq = Request.messageToReq({
         requestId,
