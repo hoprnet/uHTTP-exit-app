@@ -54,7 +54,7 @@ async function start(ops: Ops) {
     const state = await setup(ops).catch(() => {
         log.error(
             'error initializing %s',
-            ExitNode.prettyPrint('(unknown)', Version, Date.now(), []),
+            ExitNode.prettyPrint('peer(unknown)', Version, Date.now(), []),
         );
     });
     if (!state) {
@@ -96,8 +96,8 @@ async function setup(ops: Ops): Promise<State> {
     return {
         cache,
         deleteTimer,
-        privateKey: Utils.hexStringToUint8Array(ops.privateKey),
-        publicKey: Utils.hexStringToUint8Array(ops.publicKey),
+        privateKey: Utils.stringToBytes(ops.privateKey),
+        publicKey: Utils.stringToBytes(ops.publicKey),
         peerId,
         requestStore,
         relays: [],
