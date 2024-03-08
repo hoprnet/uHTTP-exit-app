@@ -60,6 +60,8 @@ async function start(ops: Ops) {
     if (!state) {
         process.exit(1);
     }
+    console.log('privateKey', state.privateKey);
+    console.log('publicKey', state.publicKey);
     setupSocket(state, ops);
     cleanup(state);
     setupRelays(state, ops);
@@ -96,8 +98,8 @@ async function setup(ops: Ops): Promise<State> {
     return {
         cache,
         deleteTimer,
-        privateKey: Utils.stringToBytes(ops.privateKey),
-        publicKey: Utils.stringToBytes(ops.publicKey),
+        privateKey: Utils.hexStringToBytes(ops.privateKey),
+        publicKey: Utils.hexStringToBytes(ops.publicKey),
         peerId,
         requestStore,
         relays: [],
@@ -307,6 +309,11 @@ function onInfoReq(state: State, ops: Ops, msg: Msg) {
     });
 }
 
+function base64ToBytes(base64: string): Uint8Array {
+    const binString = atob(base64);
+    return Uint8Array.from(binString, (m) => m.codePointAt(0) as number);
+}
+
 async function completeSegmentsEntry(
     state: State,
     ops: Ops,
@@ -316,17 +323,15 @@ async function completeSegmentsEntry(
 ) {
     const firstSeg = cacheEntry.segments.get(0) as Segment.Segment;
     const requestId = firstSeg.requestId;
-    const msg = SegmentCache.toMessage(cacheEntry);
-    const msgParts = msg.split(',');
-    if (msgParts.length !== 2) {
-        log.info('invalid message parts:', msgParts);
-        return;
-    }
+    const msgData = SegmentCache.toMessage(cacheEntry);
+    const msgBytes = base64ToBytes(msgData);
+    const pIdBytes = msgBytes.slice(0, 52);
+    const reqData = msgBytes.slice(52);
+    const textDecoder = new TextDecoder();
+    const entryPeerId = textDecoder.decode(pIdBytes);
 
-    const [entryPeerId, data] = msgParts;
-    const textEncoder = new TextEncoder();
-    const reqData = textEncoder.encode(data);
-
+    console.log('privateKey', state.privateKey);
+    console.log('publicKey', state.publicKey);
     const resReq = Request.messageToReq({
         requestId,
         message: reqData,
