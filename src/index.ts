@@ -60,8 +60,6 @@ async function start(ops: Ops) {
     if (!state) {
         process.exit(1);
     }
-    console.log('privateKey', state.privateKey);
-    console.log('publicKey', state.publicKey);
     setupSocket(state, ops);
     cleanup(state);
     setupRelays(state, ops);
@@ -327,11 +325,8 @@ async function completeSegmentsEntry(
     const msgBytes = base64ToBytes(msgData);
     const pIdBytes = msgBytes.slice(0, 52);
     const reqData = msgBytes.slice(52);
-    const textDecoder = new TextDecoder();
-    const entryPeerId = textDecoder.decode(pIdBytes);
+    const entryPeerId = Utils.bytesToString(pIdBytes);
 
-    console.log('privateKey', state.privateKey);
-    console.log('publicKey', state.publicKey);
     const resReq = Request.messageToReq({
         requestId,
         message: reqData,
@@ -367,7 +362,7 @@ async function completeSegmentsEntry(
         return sendResponse(sendParams, { type: Payload.RespType.DuplicateFail });
     }
 
-    // do RPC request
+    // do actual endpoint request
     const { endpoint, body, method, headers } = reqPayload;
     const params = { body, method, headers };
     const fetchStartedAt = performance.now();
