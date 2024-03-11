@@ -307,11 +307,6 @@ function onInfoReq(state: State, ops: Ops, msg: Msg) {
     });
 }
 
-function base64ToBytes(base64: string): Uint8Array {
-    const binString = atob(base64);
-    return Uint8Array.from(binString, (m) => m.codePointAt(0) as number);
-}
-
 async function completeSegmentsEntry(
     state: State,
     ops: Ops,
@@ -322,7 +317,7 @@ async function completeSegmentsEntry(
     const firstSeg = cacheEntry.segments.get(0) as Segment.Segment;
     const requestId = firstSeg.requestId;
     const msgData = SegmentCache.toMessage(cacheEntry);
-    const msgBytes = base64ToBytes(msgData);
+    const msgBytes = Utils.base64ToBytes(msgData);
     const pIdBytes = msgBytes.slice(0, 52);
     const reqData = msgBytes.slice(52);
     const entryPeerId = Utils.bytesToString(pIdBytes);
