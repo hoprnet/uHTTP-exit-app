@@ -6,6 +6,8 @@ name: Node.js CI
 on:
     push:
         branches: ['main']
+        tags:
+            - '**'
     pull_request:
         branches: ['main']
 
@@ -21,18 +23,60 @@ jobs:
 
         steps:
             - uses: actions/checkout@v3
+
             - name: Use Node.js ${{ matrix.node-version }}
               uses: actions/setup-node@v3
               with:
                   node-version: ${{ matrix.node-version }}
                   cache: 'yarn'
+
             - name: Install dependencies
               run: yarn --frozen-lockfile
+
             - name: Building
               run: yarn build
+
             - name: Linting
               run: yarn lint:ci
+
             - name: Formatting
               run: yarn format:ci
+
             - name: Testing
               run: yarn test
+
+    container-image:
+        name: Build and push container image
+        timeout-minutes: 10
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Set up docker images and tags
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: europe-west3-docker.pkg.dev/${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}/docker-images/phttp-exit-app
+
+            - name: Set up Google Cloud Credentials
+              id: auth
+              uses: google-github-actions/auth@v1
+              with:
+                  token_format: 'access_token'
+                  credentials_json: ${{ secrets.GOOGLE_HOPRASSOCIATION_CREDENTIALS_REGISTRY }}
+
+            - name: Login Google Container Registry
+              uses: docker/login-action@v3
+              with:
+                  registry: europe-west3-docker.pkg.dev
+                  username: oauth2accesstoken
+                  password: ${{ steps.auth.outputs.access_token }}
+
+            - name: Build and push the container image
+              uses: docker/build-push-action@v5
+              with:
+                  push: true
+                  tags: ${{ steps.meta.outputs.tags }}
+                  labels: ${{ steps.meta.outputs.labels }}
