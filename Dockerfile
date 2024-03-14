@@ -6,10 +6,8 @@ RUN apk upgrade --no-cache
 WORKDIR /app
 
 # Copy app source
-COPY package.json \
-     src/ \
-     tsconfig.json \
-     yarn.lock .
+COPY package.json tsconfig.json yarn.lock ./
+COPY src/ src/
 
 RUN yarn install --frozen-lockfile
 
@@ -36,7 +34,7 @@ RUN apk upgrade --no-cache && \
 # copy over minimal fileset to run availability-monitor
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json .
-COPY --from=builder build ./build
+COPY --from=builder /app/build ./build
 
 ENTRYPOINT ["/sbin/tini", "--"]
 
