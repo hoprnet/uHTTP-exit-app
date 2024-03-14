@@ -31,9 +31,9 @@
         "typescript": "^5.3.3"
     },
     "dependencies": {
+        "@hoprnet/phttp-lib": "^1.0.0",
         "debug": "^4.3.4",
         "isomorphic-ws": "^5.0.0",
-        "pHTTP-lib": "../pHTTP-lib",
         "sqlite3": "^5.1.7",
         "ws": "^8.16.0"
     }

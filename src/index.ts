@@ -11,7 +11,7 @@ import {
     Segment,
     SegmentCache,
     Utils,
-} from 'pHTTP-lib';
+} from '@hoprnet/phttp-lib';
 
 import log from './logger';
 import * as RequestStore from './request-store';
