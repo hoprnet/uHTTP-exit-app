@@ -424,7 +424,7 @@ function addLatencies(
         case Payload.RespType.Resp: {
             const dur = Math.round(performance.now() - recvAt);
             resp.callDuration = fetchDur;
-            resp.exitNodeDuration = dur - fetchDur;
+            resp.exitAppDuration = dur - fetchDur;
             return resp;
         }
         default:
