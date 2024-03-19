@@ -2,9 +2,9 @@
     "name": "pHTTP-exit-app",
     "version": "2.0.0",
     "description": "privateHTTP exit application",
+    "author": "HOPR Association",
     "main": "src/index.ts",
-    "license": "MIT",
-    "private": false,
+    "license": "GPL-3.0",
     "scripts": {
         "prebuild": "node -p \"'export default \\'' + require('./package.json').version + '\\';'\" > src/version.ts",
         "build": "yarn prebuild && tsc",
