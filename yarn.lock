@@ -355,10 +355,10 @@
     "@noble/curves" "^1.3.0"
     "@noble/hashes" "^1.3.3"
 
-"@hoprnet/phttp-lib@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@hoprnet/phttp-lib/-/phttp-lib-1.0.1.tgz#778373494852a98afc3dee8d48eee321fc632dd3"
-  integrity sha512-7zh22orWI299wJMGvnDafiaTYVqNyU6qLvo989yC6hjxo8bnTsMkfcfEUFtWr2cVSlNv7/NVRRmgQxANJM6xgA==
+"@hoprnet/phttp-lib@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@hoprnet/phttp-lib/-/phttp-lib-1.1.0.tgz#a4762cbfa41b31421ad7e3390d3503c661d88141"
+  integrity sha512-TUFOb706/j7uxCgSvxL800/1v9wfSVOyHbT+o6wqzzupJmQV/hRvZ1E4grq0UUqG7U+wCD4yi5UXFGRLM06iDQ==
   dependencies:
     "@hoprnet/phttp-crypto" "^1.0.0"
     isomorphic-ws "^5.0.0"
