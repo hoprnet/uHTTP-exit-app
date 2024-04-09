@@ -508,6 +508,7 @@ function sendResponse(
             rpcMethod: reqPayload.method,
             segmentCount: cacheEntry.count,
             lastSegmentLength: lastReqSeg.body.length,
+            chainId: reqPayload.chainId,
             type: 'request',
         };
 
@@ -517,6 +518,7 @@ function sendResponse(
             rpcMethod: reqPayload.method,
             segmentCount: segments.length,
             lastSegmentLength: lastRespSeg.body.length,
+            chainId: reqPayload.chainId,
             type: 'response',
         };
 
