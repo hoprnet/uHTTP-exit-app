@@ -358,37 +358,33 @@ async function completeSegmentsEntry(
     }
 
     // do actual endpoint request
-    const { endpoint, body, method, headers } = reqPayload;
-    const params = { body, method, headers };
     const fetchStartedAt = performance.now();
-    const resFetch = await EndpointApi.fetchUrl(endpoint, params).catch((err: Error) => {
-        log.error(
-            'error doing RPC req on %s with %o: %s[%o]',
-            endpoint,
-            params,
-            JSON.stringify(err),
-            err,
-        );
-        // HTTP critical fail response
-        const resp: Payload.RespPayload = {
-            type: Payload.RespType.Error,
-            reason: JSON.stringify(err),
-        };
-        return sendResponse(sendParams, resp);
-    });
+    const resFetch = await EndpointApi.fetchUrl(reqPayload.endpoint, reqPayload).catch(
+        (err: Error) => {
+            log.error(
+                'error doing RPC req on %s with %o: %s[%o]',
+                reqPayload.endpoint,
+                reqPayload,
+                JSON.stringify(err),
+                err,
+            );
+            // HTTP critical fail response
+            const resp: Payload.RespPayload = {
+                type: Payload.RespType.Error,
+                reason: JSON.stringify(err),
+            };
+            return sendResponse(sendParams, resp);
+        },
+    );
     if (!resFetch) {
         return;
     }
 
     const fetchDur = Math.round(performance.now() - fetchStartedAt);
-    // http fail response
-    if (Res.isErr(resFetch)) {
-        const resp: Payload.RespPayload = { type: Payload.RespType.Error, reason: resFetch.error };
-        return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
-    }
-
-    const { status, text } = resFetch.res;
-    const resp: Payload.RespPayload = { type: Payload.RespType.Resp, status, text };
+    const resp: Payload.RespPayload = {
+        type: Payload.RespType.Resp,
+        ...resFetch,
+    };
     return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
 }
 
