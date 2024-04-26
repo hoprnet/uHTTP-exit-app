@@ -20,7 +20,7 @@ import Version from './version';
 const SocketReconnectTimeout = 1e3; // 1sek
 const RequestPurgeTimeout = 60e3; // 60sek
 const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
-const RelayNodesCompatVersions = ['2.0.6'];
+const RelayNodesCompatVersions = ['2.1'];
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
 
 type State = {
@@ -176,10 +176,12 @@ async function setupRelays(state: State, ops: Ops) {
             .filter(({ status }) => status === 'Open')
             .map(({ peerAddress }) => peerAddress);
         const openChannels = new Set(openChannelsArr);
+
         state.relays = relays
             .filter(({ peerAddress }) => openChannels.has(peerAddress))
             .map(({ peerId }) => peerId);
-        log.info('found %d potential relays', relays.length);
+
+        log.info('found %d potential relays', state.relays.length);
     } catch (err) {
         log.error('error during relay setup: %s[%o]', JSON.stringify(err), err);
     } finally {
@@ -358,37 +360,33 @@ async function completeSegmentsEntry(
     }
 
     // do actual endpoint request
-    const { endpoint, body, method, headers } = reqPayload;
-    const params = { body, method, headers };
     const fetchStartedAt = performance.now();
-    const resFetch = await EndpointApi.fetchUrl(endpoint, params).catch((err: Error) => {
-        log.error(
-            'error doing RPC req on %s with %o: %s[%o]',
-            endpoint,
-            params,
-            JSON.stringify(err),
-            err,
-        );
-        // HTTP critical fail response
-        const resp: Payload.RespPayload = {
-            type: Payload.RespType.Error,
-            reason: JSON.stringify(err),
-        };
-        return sendResponse(sendParams, resp);
-    });
+    const resFetch = await EndpointApi.fetchUrl(reqPayload.endpoint, reqPayload).catch(
+        (err: Error) => {
+            log.error(
+                'error doing RPC req on %s with %o: %s[%o]',
+                reqPayload.endpoint,
+                reqPayload,
+                JSON.stringify(err),
+                err,
+            );
+            // HTTP critical fail response
+            const resp: Payload.RespPayload = {
+                type: Payload.RespType.Error,
+                reason: JSON.stringify(err),
+            };
+            return sendResponse(sendParams, resp);
+        },
+    );
     if (!resFetch) {
         return;
     }
 
     const fetchDur = Math.round(performance.now() - fetchStartedAt);
-    // http fail response
-    if (Res.isErr(resFetch)) {
-        const resp: Payload.RespPayload = { type: Payload.RespType.Error, reason: resFetch.error };
-        return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
-    }
-
-    const { status, text } = resFetch.res;
-    const resp: Payload.RespPayload = { type: Payload.RespType.Resp, status, text };
+    const resp: Payload.RespPayload = {
+        type: Payload.RespType.Resp,
+        ...resFetch,
+    };
     return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
 }
 
