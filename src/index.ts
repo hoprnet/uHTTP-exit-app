@@ -20,7 +20,7 @@ import Version from './version';
 const SocketReconnectTimeout = 1e3; // 1sek
 const RequestPurgeTimeout = 60e3; // 60sek
 const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
-const RelayNodesCompatVersions = ['2.0.6'];
+const RelayNodesCompatVersions = ['2.1'];
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
 
 type State = {
@@ -176,10 +176,12 @@ async function setupRelays(state: State, ops: Ops) {
             .filter(({ status }) => status === 'Open')
             .map(({ peerAddress }) => peerAddress);
         const openChannels = new Set(openChannelsArr);
+
         state.relays = relays
             .filter(({ peerAddress }) => openChannels.has(peerAddress))
             .map(({ peerId }) => peerId);
-        log.info('found %d potential relays', relays.length);
+
+        log.info('found %d potential relays', state.relays.length);
     } catch (err) {
         log.error('error during relay setup: %s[%o]', JSON.stringify(err), err);
     } finally {
