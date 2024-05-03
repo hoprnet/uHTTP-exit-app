@@ -67,7 +67,7 @@ async function start(ops: Ops) {
 
 async function setup(ops: Ops): Promise<State> {
     const requestStore = await RequestStore.setup(ops.dbFile).catch((err) => {
-        log.error('error setting up request store: %s[%o]', JSON.stringify(err), err);
+        log.error('error setting up request store: %o', err);
     });
     if (!requestStore) {
         return Promise.reject();
@@ -76,7 +76,7 @@ async function setup(ops: Ops): Promise<State> {
     log.verbose('set up DB at', ops.dbFile);
 
     const resPeerId = await NodeApi.accountAddresses(ops).catch((err: Error) => {
-        log.error('error fetching account addresses: %s[%o]', JSON.stringify(err), err);
+        log.error('error fetching account addresses: %o', err);
     });
     if (!resPeerId) {
         return Promise.reject();
@@ -114,7 +114,7 @@ function setupSocket(state: State, ops: Ops) {
     socket.onmessage = onMessage(state, ops);
 
     socket.on('error', (err: Error) => {
-        log.error('error on socket: %s[%o]', JSON.stringify(err), err);
+        log.error('error on socket: %o', err);
         socket.onmessage = false;
         socket.close();
     });
@@ -138,7 +138,7 @@ function cleanup(state: State) {
             log.info('successfully removed expired requests from store');
         })
         .catch((err) => {
-            log.error('error during cleanup: %s[%o]', JSON.stringify(err), err);
+            log.error('error during cleanup: %o', err);
         })
         .finally(() => {
             scheduleCleanup(state);
@@ -183,7 +183,7 @@ async function setupRelays(state: State, ops: Ops) {
 
         log.info('found %d potential relays', state.relays.length);
     } catch (err) {
-        log.error('error during relay setup: %s[%o]', JSON.stringify(err), err);
+        log.error('error during relay setup: %o', err);
     } finally {
         setTimeout(() => scheduleSetupRelays(state, ops));
     }
@@ -276,7 +276,7 @@ function onPingReq(state: State, ops: Ops, msg: Msg) {
         tag: msg.tag,
         message: `pong-${state.peerId}`,
     }).catch((err) => {
-        log.error('error sending pong: %s[%o]', JSON.stringify(err), err);
+        log.error('error sending pong: %o', err);
     });
 }
 
@@ -305,7 +305,7 @@ function onInfoReq(state: State, ops: Ops, msg: Msg) {
         tag: msg.tag,
         message,
     }).catch((err) => {
-        log.error('error sending info: %s[%o]', JSON.stringify(err), err);
+        log.error('error sending info: %o', err);
     });
 }
 
@@ -364,16 +364,15 @@ async function completeSegmentsEntry(
     const resFetch = await EndpointApi.fetchUrl(reqPayload.endpoint, reqPayload).catch(
         (err: Error) => {
             log.error(
-                'error doing RPC req on %s with %o: %s[%o]',
+                'error doing RPC req on %s with %o: %o',
                 reqPayload.endpoint,
                 reqPayload,
-                JSON.stringify(err),
                 err,
             );
             // HTTP critical fail response
             const resp: Payload.RespPayload = {
                 type: Payload.RespType.Error,
-                reason: JSON.stringify(err),
+                reason: err.toString(),
             };
             return sendResponse(sendParams, resp);
         },
@@ -487,12 +486,7 @@ function sendResponse(
             tag,
             message: Segment.toMessage(seg),
         }).catch((err: Error) => {
-            log.error(
-                'error sending %s: %s[%o]',
-                Segment.prettyPrint(seg),
-                JSON.stringify(err),
-                err,
-            );
+            log.error('error sending %s: %o', Segment.prettyPrint(seg), err);
             // remove relay if it fails
             state.relays = state.relays.filter((r) => r !== relay);
         });
@@ -522,10 +516,10 @@ function sendResponse(
         };
 
         DpApi.postQuota(ops, quotaRequest).catch((err) => {
-            log.error('error recording request quota: %s[%o]', JSON.stringify(err), err);
+            log.error('error recording request quota: %o', err);
         });
         DpApi.postQuota(ops, quotaResponse).catch((err) => {
-            log.error('error recording response quota: %s[%o]', JSON.stringify(err), err);
+            log.error('error recording response quota: %o', err);
         });
     });
 }
