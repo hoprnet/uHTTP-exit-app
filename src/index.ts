@@ -501,9 +501,10 @@ function sendResponse(
     // inform DP non blocking
     setTimeout(() => {
         const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
+        const rpcMethod = determineRPCmethod(reqPayload.body);
         const quotaRequest: DpApi.QuotaParams = {
             clientId: reqPayload.clientId,
-            rpcMethod: reqPayload.method,
+            rpcMethod: rpcMethod,
             segmentCount: cacheEntry.count,
             lastSegmentLength: lastReqSeg.body.length,
             chainId: reqPayload.chainId,
@@ -513,7 +514,7 @@ function sendResponse(
         const lastRespSeg = segments[segments.length - 1];
         const quotaResponse: DpApi.QuotaParams = {
             clientId: reqPayload.clientId,
-            rpcMethod: reqPayload.method,
+            rpcMethod: rpcMethod,
             segmentCount: segments.length,
             lastSegmentLength: lastRespSeg.body.length,
             chainId: reqPayload.chainId,
@@ -527,6 +528,22 @@ function sendResponse(
             log.error('error recording response quota: %s[%o]', JSON.stringify(err), err);
         });
     });
+}
+
+function determineRPCmethod(body?: string) {
+    if (!body) {
+        return undefined;
+    }
+
+    try {
+        const obj = JSON.parse(body);
+        if ('method' in obj) {
+            return obj.method;
+        }
+    } catch (err) {
+        log.warn('Error parsing unknown string with JSON: %s [%s]', err, body);
+        return undefined;
+    }
 }
 
 // if this file is the entrypoint of the nodejs process
