@@ -1,6 +1,6 @@
 {
     "name": "pHTTP-exit-app",
-    "version": "2.2.2",
+    "version": "2.2.3",
     "description": "privateHTTP exit application",
     "author": "HOPR Association",
     "main": "src/index.ts",
