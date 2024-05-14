@@ -319,7 +319,13 @@ async function completeSegmentsEntry(
     const firstSeg = cacheEntry.segments.get(0) as Segment.Segment;
     const requestId = firstSeg.requestId;
     const msgData = SegmentCache.toMessage(cacheEntry);
-    const msgBytes = Utils.base64ToBytes(msgData);
+    const resMsgBytes = Utils.base64ToBytes(msgData);
+    if (Res.isErr(resMsgBytes)) {
+        log.error('error decoding msgData: %s', resMsgBytes.error);
+        return;
+    }
+
+    const msgBytes = resMsgBytes.res;
     const pIdBytes = msgBytes.slice(0, 52);
     const reqData = msgBytes.slice(52);
     const entryPeerId = Utils.bytesToString(pIdBytes);
