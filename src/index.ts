@@ -51,18 +51,19 @@ type Msg = {
 };
 
 async function start(ops: Ops) {
-    const state = await setup(ops).catch(() => {
+    try {
+        const state = await setup(ops);
+        setupSocket(state, ops);
+        removeExpired(state);
+        setupRelays(state, ops);
+    } catch (err) {
         log.error(
-            'error initializing %s',
-            ExitNode.prettyPrint('peer(unknown)', Version, Date.now(), []),
+            'error initializing %s: %o',
+            ExitNode.prettyPrint('____', Version, Date.now(), []),
+            err,
         );
-    });
-    if (!state) {
         process.exit(1);
     }
-    setupSocket(state, ops);
-    cleanup(state);
-    setupRelays(state, ops);
 }
 
 async function setup(ops: Ops): Promise<State> {
@@ -70,7 +71,7 @@ async function setup(ops: Ops): Promise<State> {
         log.error('error setting up request store: %o', err);
     });
     if (!requestStore) {
-        return Promise.reject();
+        throw new Error('No request store');
     }
 
     log.verbose('set up DB at', ops.dbFile);
@@ -79,7 +80,7 @@ async function setup(ops: Ops): Promise<State> {
         log.error('error fetching account addresses: %o', err);
     });
     if (!resPeerId) {
-        return Promise.reject();
+        throw new Error('No peerId');
     }
 
     const { hopr: peerId } = resPeerId;
@@ -132,27 +133,27 @@ function setupSocket(state: State, ops: Ops) {
     state.socket = socket;
 }
 
-function cleanup(state: State) {
+function removeExpired(state: State) {
     RequestStore.removeExpired(state.requestStore, ValidCounterPeriod)
         .then(() => {
             log.info('successfully removed expired requests from store');
         })
         .catch((err) => {
-            log.error('error during cleanup: %o', err);
+            log.error('error during removeExpired: %o', err);
         })
         .finally(() => {
-            scheduleCleanup(state);
+            scheduleRemoveExpired(state);
         });
 }
 
-function scheduleCleanup(state: State) {
+function scheduleRemoveExpired(state: State) {
     // schdule next run somehwere between 1h and 1h and 10m
     const next = ValidCounterPeriod + Math.floor(Math.random() * 10 * 60e3);
     const logH = Math.floor(next / 1000 / 60 / 60);
     const logM = Math.round(next / 1000 / 60) - logH * 60;
 
-    log.info('scheduling next cleanup in %dh%dm', logH, logM);
-    setTimeout(() => cleanup(state), next);
+    log.info('scheduling next removeExpired in %dh%dm', logH, logM);
+    setTimeout(() => removeExpired(state), next);
 }
 
 async function setupRelays(state: State, ops: Ops) {
