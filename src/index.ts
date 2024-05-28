@@ -320,7 +320,7 @@ async function completeSegmentsEntry(
     const firstSeg = cacheEntry.segments.get(0) as Segment.Segment;
     const requestId = firstSeg.requestId;
     const msgData = SegmentCache.toMessage(cacheEntry);
-    const msgBytes = Utils.stringToBytes(msgData);
+    const msgBytes = Utils.base64ToBytes(msgData);
 
     const pIdBytes = msgBytes.slice(0, 52);
     const reqData = msgBytes.slice(52);
