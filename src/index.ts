@@ -20,7 +20,7 @@ import Version from './version';
 const SocketReconnectTimeout = 1e3; // 1sek
 const RequestPurgeTimeout = 60e3; // 60sek
 const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
-const RelayNodesCompatVersions = ['2.1'];
+const RelayNodesCompatVersions = ['3.'];
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
 
 type State = {
