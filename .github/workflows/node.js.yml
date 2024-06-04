@@ -76,7 +76,7 @@ jobs:
               id: meta
               uses: docker/metadata-action@v5
               with:
-                  images: europe-west3-docker.pkg.dev/${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}/docker-images/phttp-exit-app
+                  images: europe-west3-docker.pkg.dev/${{ secrets.GOOGLE_HOPRASSOCIATION_PROJECT }}/docker-images/uhttp-exit-app
                   tags: |
                       type=semver,pattern={{version}}
                       type=ref,event=pr

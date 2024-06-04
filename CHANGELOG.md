@@ -1,4 +1,4 @@
-# pHTTP-exit-app
+# uhttp-exit-app
 
 ## 3.0.1
 
