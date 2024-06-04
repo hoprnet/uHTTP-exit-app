@@ -11,7 +11,7 @@ import {
     Segment,
     SegmentCache,
     Utils,
-} from '@hoprnet/phttp-lib';
+} from '@hoprnet/uhttp-lib';
 
 import log from './logger';
 import * as RequestStore from './request-store';
@@ -549,35 +549,35 @@ function determineRPCmethod(body?: string) {
 
 // if this file is the entrypoint of the nodejs process
 if (require.main === module) {
-    if (!process.env.PHTTP_EA_PRIVATE_KEY) {
-        throw new Error("Missing 'PHTTP_EA_PRIVATE_KEY' env var.");
+    if (!process.env.UHTTP_EA_PRIVATE_KEY) {
+        throw new Error("Missing 'UHTTP_EA_PRIVATE_KEY' env var.");
     }
-    if (!process.env.PHTTP_EA_PUBLIC_KEY) {
-        throw new Error("Missing 'PHTTP_EA_PUBLIC_KEY' env var.");
+    if (!process.env.UHTTP_EA_PUBLIC_KEY) {
+        throw new Error("Missing 'UHTTP_EA_PUBLIC_KEY' env var.");
     }
-    if (!process.env.PHTTP_EA_HOPRD_ENDPOINT) {
-        throw new Error("Missing 'PHTTP_EA_HOPRD_ENDPOINT' env var.");
+    if (!process.env.UHTTP_EA_HOPRD_ENDPOINT) {
+        throw new Error("Missing 'UHTTP_EA_HOPRD_ENDPOINT' env var.");
     }
-    if (!process.env.PHTTP_EA_HOPRD_ACCESS_TOKEN) {
-        throw new Error("Missing 'PHTTP_EA_HOPRD_ACCESS_TOKEN' env var.");
+    if (!process.env.UHTTP_EA_HOPRD_ACCESS_TOKEN) {
+        throw new Error("Missing 'UHTTP_EA_HOPRD_ACCESS_TOKEN' env var.");
     }
-    if (!process.env.PHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT) {
-        throw new Error("Missing 'PHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT' env var.");
+    if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT) {
+        throw new Error("Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT' env var.");
     }
-    if (!process.env.PHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN) {
-        throw new Error("Missing 'PHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN' env var.");
+    if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN) {
+        throw new Error("Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN' env var.");
     }
-    if (!process.env.PHTTP_EA_DATABASE_FILE) {
-        throw new Error("Missing 'PHTTP_EA_DATABASE_FILE' env var.");
+    if (!process.env.UHTTP_EA_DATABASE_FILE) {
+        throw new Error("Missing 'UHTTP_EA_DATABASE_FILE' env var.");
     }
 
     start({
-        privateKey: process.env.PHTTP_EA_PRIVATE_KEY,
-        publicKey: process.env.PHTTP_EA_PUBLIC_KEY,
-        apiEndpoint: new URL(process.env.PHTTP_EA_HOPRD_ENDPOINT),
-        accessToken: process.env.PHTTP_EA_HOPRD_ACCESS_TOKEN,
-        discoveryPlatformEndpoint: process.env.PHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT,
-        nodeAccessToken: process.env.PHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN,
-        dbFile: process.env.PHTTP_EA_DATABASE_FILE,
+        privateKey: process.env.UHTTP_EA_PRIVATE_KEY,
+        publicKey: process.env.UHTTP_EA_PUBLIC_KEY,
+        apiEndpoint: new URL(process.env.UHTTP_EA_HOPRD_ENDPOINT),
+        accessToken: process.env.UHTTP_EA_HOPRD_ACCESS_TOKEN,
+        discoveryPlatformEndpoint: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT,
+        nodeAccessToken: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN,
+        dbFile: process.env.UHTTP_EA_DATABASE_FILE,
     });
 }
