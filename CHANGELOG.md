@@ -1,5 +1,11 @@
 # uhttp-exit-app
 
+## 3.0.2
+
+### Patch Changes
+
+-   b34a9ec: Rename to uHTTP
+
 ## 3.0.1
 
 ### Patch Changes
