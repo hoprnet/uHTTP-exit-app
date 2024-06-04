@@ -1,8 +1,8 @@
-# pHTTP Exit App
+# u(nlinked)HTTP exit application
 
 ## Description
 
-pHTTP Exit Application attaches to an exit node and performs arbitrary incoming HTTP requests for clients.
+uHTTP exit application attaches to an exit node and performs arbitrary incoming HTTP requests for clients.
 
 ## Run with Docker
 
