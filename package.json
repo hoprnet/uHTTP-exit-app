@@ -1,7 +1,7 @@
 {
-    "name": "pHTTP-exit-app",
+    "name": "uhttp-exit-app",
     "version": "3.0.1",
-    "description": "privateHTTP exit application",
+    "description": "u(nlinked)HTTP exit application",
     "author": "HOPR Association",
     "main": "src/index.ts",
     "license": "GPL-3.0",
@@ -32,7 +32,7 @@
         "typescript": "^5.4.5"
     },
     "dependencies": {
-        "@hoprnet/phttp-lib": "^3.0.1",
+        "@hoprnet/uhttp-lib": "^3.0.2",
         "debug": "^4.3.4",
         "isomorphic-ws": "^5.0.0",
         "sqlite3": "^5.1.7",

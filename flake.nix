@@ -1,5 +1,5 @@
 {
-  description = "p(rivate)HTTP exit app dev shell";
+  description = "u(nlinked)HTTP exit app dev shell";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
