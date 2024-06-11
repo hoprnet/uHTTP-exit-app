@@ -20,7 +20,7 @@ import Version from './version';
 const SocketReconnectTimeout = 1e3; // 1sek
 const RequestPurgeTimeout = 60e3; // 60sek
 const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
-const RelayNodesCompatVersions = ['3.'];
+const RelayNodesCompatVersions = ['2.1'];
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
 
 type State = {
@@ -505,7 +505,7 @@ function sendResponse(
         const rpcMethod = determineRPCmethod(reqPayload.body);
         const quotaRequest: DpApi.QuotaParams = {
             clientId: reqPayload.clientId,
-            rpcMethod: rpcMethod,
+            rpcMethod,
             segmentCount: cacheEntry.count,
             lastSegmentLength: lastReqSeg.body.length,
             chainId: reqPayload.chainId,
@@ -515,7 +515,7 @@ function sendResponse(
         const lastRespSeg = segments[segments.length - 1];
         const quotaResponse: DpApi.QuotaParams = {
             clientId: reqPayload.clientId,
-            rpcMethod: rpcMethod,
+            rpcMethod,
             segmentCount: segments.length,
             lastSegmentLength: lastRespSeg.body.length,
             chainId: reqPayload.chainId,
