@@ -1,5 +1,11 @@
 # uhttp-exit-app
 
+## 3.0.3
+
+### Patch Changes
+
+-   78578f8: Fix current relay nodes compatibility version
+
 ## 3.0.2
 
 ### Patch Changes
