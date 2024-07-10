@@ -1,4 +1,4 @@
-import WS from 'isomorphic-ws';
+import WebSocket from 'ws';
 import {
     DpApi,
     EndpointApi,
@@ -17,14 +17,21 @@ import log from './logger';
 import * as RequestStore from './request-store';
 import Version from './version';
 
-const SocketReconnectTimeout = 1e3; // 1sek
-const RequestPurgeTimeout = 60e3; // 60sek
-const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
+// WebSocket heartbeats
+const HeartBeatInterval = 30e3; // 30sek
+// Hoprd nodes version to be considered as valid relays
 const RelayNodesCompatVersions = ['2.1'];
+// Removing segments from incomplete requests after this grace period
+const RequestPurgeTimeout = 60e3; // 60sek
+// base interval for checking relays
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
+// reconnect timeout for the websocket after closure
+const SocketReconnectTimeout = 3e3; // 3sek
+// Time period in which counters for crypto are considered valid
+const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
 
 type State = {
-    socket?: WS.WebSocket;
+    socket?: WebSocket;
     privateKey: Uint8Array;
     publicKey: Uint8Array;
     peerId: string;
@@ -32,6 +39,7 @@ type State = {
     deleteTimer: Map<string, ReturnType<typeof setTimeout>>; // deletion timer of requests in segment cache
     requestStore: RequestStore.RequestStore;
     relays: string[];
+    heartbeatInterval?: ReturnType<typeof setInterval>;
 };
 
 type Ops = {
@@ -106,7 +114,7 @@ async function setup(ops: Ops): Promise<State> {
 }
 
 function setupSocket(state: State, ops: Ops) {
-    const socket = NodeApi.connectWS(ops);
+    const socket = connectWS(ops);
     if (!socket) {
         log.error('error opening websocket');
         process.exit(3);
@@ -116,18 +124,20 @@ function setupSocket(state: State, ops: Ops) {
 
     socket.on('error', (err: Error) => {
         log.error('error on socket: %o', err);
-        socket.onmessage = false;
+        socket.onmessage = null;
         socket.close();
     });
 
-    socket.on('close', (evt: WS.CloseEvent) => {
+    socket.on('close', (evt: WebSocket.CloseEvent) => {
         log.warn('closing socket %o - attempting reconnect', evt);
         // attempt reconnect
         setTimeout(() => setupSocket(state, ops), SocketReconnectTimeout);
     });
 
     socket.on('open', () => {
+        clearInterval(state.heartbeatInterval);
         log.verbose('opened websocket listener');
+        state.heartbeatInterval = setInterval(() => socket.ping(), HeartBeatInterval);
     });
 
     state.socket = socket;
@@ -147,7 +157,7 @@ function removeExpired(state: State) {
 }
 
 function scheduleRemoveExpired(state: State) {
-    // schdule next run somehwere between 1h and 1h and 10m
+    // schedule next run somehwere between 1h and 1h and 10m
     const next = ValidCounterPeriod + Math.floor(Math.random() * 10 * 60e3);
     const logH = Math.floor(next / 1000 / 60 / 60);
     const logM = Math.round(next / 1000 / 60) - logH * 60;
@@ -201,7 +211,7 @@ function scheduleSetupRelays(state: State, ops: Ops) {
 }
 
 function onMessage(state: State, ops: Ops) {
-    return function (evt: WS.MessageEvent) {
+    return function (evt: WebSocket.MessageEvent) {
         const recvAt = performance.now();
         const raw = evt.data.toString();
         const msg = JSON.parse(raw) as Msg;
@@ -545,6 +555,13 @@ function determineRPCmethod(body?: string) {
         log.warn('Error parsing unknown string with JSON: %s [%s]', err, body);
         return undefined;
     }
+}
+
+function connectWS({ apiEndpoint, accessToken }: Ops): WebSocket {
+    const wsURL = new URL('/api/v3/messages/websocket', apiEndpoint);
+    wsURL.protocol = apiEndpoint.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsURL.search = `?apiToken=${accessToken}`;
+    return new WebSocket(wsURL);
 }
 
 // if this file is the entrypoint of the nodejs process
