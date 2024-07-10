@@ -130,14 +130,21 @@ function setupSocket(state: State, ops: Ops) {
 
     socket.on('close', (evt: WebSocket.CloseEvent) => {
         log.warn('closing socket %o - attempting reconnect', evt);
+        clearInterval(state.heartbeatInterval);
         // attempt reconnect
         setTimeout(() => setupSocket(state, ops), SocketReconnectTimeout);
     });
 
     socket.on('open', () => {
-        clearInterval(state.heartbeatInterval);
         log.verbose('opened websocket listener');
-        state.heartbeatInterval = setInterval(() => socket.ping(), HeartBeatInterval);
+        clearInterval(state.heartbeatInterval);
+        state.heartbeatInterval = setInterval(() => {
+            socket.ping((err?: Error) => {
+                if (err) {
+                    log.error('error on ping: %o', err);
+                }
+            });
+        }, HeartBeatInterval);
     });
 
     state.socket = socket;
