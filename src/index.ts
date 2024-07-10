@@ -42,13 +42,17 @@ type State = {
     heartbeatInterval?: ReturnType<typeof setInterval>;
 };
 
+type OpsDP = {
+    endpoint: string;
+    nodeAccessToken: string;
+};
+
 type Ops = {
     privateKey: string;
     publicKey: string;
     apiEndpoint: URL;
     accessToken: string;
-    discoveryPlatformEndpoint: string;
-    nodeAccessToken: string;
+    discoveryPlatform?: OpsDP;
     dbFile: string;
 };
 
@@ -95,11 +99,13 @@ async function setup(ops: Ops): Promise<State> {
     const cache = SegmentCache.init();
     const deleteTimer = new Map();
 
-    const logOpts = {
+    const logOpts: Record<string, string> = {
         publicKey: ops.publicKey,
-        apiEndpoint: ops.apiEndpoint,
-        discoveryPlatformEndpoint: ops.discoveryPlatformEndpoint,
+        apiEndpoint: ops.apiEndpoint.href,
     };
+    if (ops.discoveryPlatform) {
+        logOpts.discoveryPlatformEndpoint = ops.discoveryPlatform.endpoint;
+    }
     log.info('%s started with %o', ExitNode.prettyPrint(peerId, Version, Date.now(), []), logOpts);
 
     return {
@@ -516,35 +522,57 @@ function sendResponse(
         });
     });
 
-    // inform DP non blocking
-    setTimeout(() => {
-        const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
-        const rpcMethod = determineRPCmethod(reqPayload.body);
-        const quotaRequest: DpApi.QuotaParams = {
-            clientId: reqPayload.clientId,
-            rpcMethod,
-            segmentCount: cacheEntry.count,
-            lastSegmentLength: lastReqSeg.body.length,
-            chainId: reqPayload.chainId,
-            type: 'request',
-        };
-
-        const lastRespSeg = segments[segments.length - 1];
-        const quotaResponse: DpApi.QuotaParams = {
-            clientId: reqPayload.clientId,
-            rpcMethod,
-            segmentCount: segments.length,
-            lastSegmentLength: lastRespSeg.body.length,
-            chainId: reqPayload.chainId,
-            type: 'response',
-        };
-
-        DpApi.postQuota(ops, quotaRequest).catch((err) => {
-            log.error('error recording request quota: %o', err);
+    if (ops.discoveryPlatform) {
+        reportToDiscoveryPlatform({
+            cacheEntry,
+            opsDP: ops.discoveryPlatform,
+            reqPayload,
+            segments,
         });
-        DpApi.postQuota(ops, quotaResponse).catch((err) => {
-            log.error('error recording response quota: %o', err);
-        });
+    }
+}
+
+async function reportToDiscoveryPlatform({
+    cacheEntry,
+    opsDP,
+    reqPayload,
+    segments,
+}: {
+    cacheEntry: SegmentCache.Entry;
+    opsDP: OpsDP;
+    reqPayload: Payload.ReqPayload;
+    segments: Segment.Segment[];
+}) {
+    const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
+    const rpcMethod = determineRPCmethod(reqPayload.body);
+    const quotaRequest: DpApi.QuotaParams = {
+        clientId: reqPayload.clientId,
+        rpcMethod,
+        segmentCount: cacheEntry.count,
+        lastSegmentLength: lastReqSeg.body.length,
+        chainId: reqPayload.chainId,
+        type: 'request',
+    };
+
+    const lastRespSeg = segments[segments.length - 1];
+    const quotaResponse: DpApi.QuotaParams = {
+        clientId: reqPayload.clientId,
+        rpcMethod,
+        segmentCount: segments.length,
+        lastSegmentLength: lastRespSeg.body.length,
+        chainId: reqPayload.chainId,
+        type: 'response',
+    };
+
+    const conn = {
+        discoveryPlatformEndpoint: opsDP.endpoint,
+        nodeAccessToken: opsDP.nodeAccessToken,
+    };
+    DpApi.postQuota(conn, quotaRequest).catch((err) => {
+        log.error('error recording request quota: %o', err);
+    });
+    DpApi.postQuota(conn, quotaResponse).catch((err) => {
+        log.error('error recording response quota: %o', err);
     });
 }
 
@@ -585,14 +613,22 @@ if (require.main === module) {
     if (!process.env.UHTTP_EA_HOPRD_ACCESS_TOKEN) {
         throw new Error("Missing 'UHTTP_EA_HOPRD_ACCESS_TOKEN' env var.");
     }
-    if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT) {
-        throw new Error("Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT' env var.");
-    }
-    if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN) {
-        throw new Error("Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN' env var.");
-    }
     if (!process.env.UHTTP_EA_DATABASE_FILE) {
         throw new Error("Missing 'UHTTP_EA_DATABASE_FILE' env var.");
+    }
+
+    const dpEndpoint = process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT;
+    let discoveryPlatform;
+    if (dpEndpoint) {
+        if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN) {
+            throw new Error(
+                "Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN' env var alongside provided UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT.",
+            );
+        }
+        discoveryPlatform = {
+            endpoint: dpEndpoint,
+            nodeAccessToken: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN,
+        };
     }
 
     start({
@@ -600,8 +636,7 @@ if (require.main === module) {
         publicKey: process.env.UHTTP_EA_PUBLIC_KEY,
         apiEndpoint: new URL(process.env.UHTTP_EA_HOPRD_ENDPOINT),
         accessToken: process.env.UHTTP_EA_HOPRD_ACCESS_TOKEN,
-        discoveryPlatformEndpoint: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT,
-        nodeAccessToken: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN,
+        discoveryPlatform,
         dbFile: process.env.UHTTP_EA_DATABASE_FILE,
     });
 }
