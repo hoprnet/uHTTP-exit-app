@@ -1,4 +1,4 @@
-import WS from 'isomorphic-ws';
+import WebSocket from 'ws';
 import {
     DpApi,
     EndpointApi,
@@ -17,14 +17,21 @@ import log from './logger';
 import * as RequestStore from './request-store';
 import Version from './version';
 
-const SocketReconnectTimeout = 1e3; // 1sek
-const RequestPurgeTimeout = 60e3; // 60sek
-const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
+// WebSocket heartbeats
+const HeartBeatInterval = 30e3; // 30 sec
+// Hoprd nodes version to be considered as valid relays
 const RelayNodesCompatVersions = ['2.1'];
+// Removing segments from incomplete requests after this grace period
+const RequestPurgeTimeout = 60e3; // 60 sec
+// base interval for checking relays
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
+// reconnect timeout for the websocket after closure
+const SocketReconnectTimeout = 3e3; // 3 sec
+// Time period in which counters for crypto are considered valid
+const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
 
 type State = {
-    socket?: WS.WebSocket;
+    socket?: WebSocket;
     privateKey: Uint8Array;
     publicKey: Uint8Array;
     peerId: string;
@@ -32,6 +39,12 @@ type State = {
     deleteTimer: Map<string, ReturnType<typeof setTimeout>>; // deletion timer of requests in segment cache
     requestStore: RequestStore.RequestStore;
     relays: string[];
+    heartbeatInterval?: ReturnType<typeof setInterval>;
+};
+
+type OpsDP = {
+    endpoint: string;
+    nodeAccessToken: string;
 };
 
 type Ops = {
@@ -39,8 +52,7 @@ type Ops = {
     publicKey: string;
     apiEndpoint: URL;
     accessToken: string;
-    discoveryPlatformEndpoint: string;
-    nodeAccessToken: string;
+    discoveryPlatform?: OpsDP;
     dbFile: string;
 };
 
@@ -87,11 +99,13 @@ async function setup(ops: Ops): Promise<State> {
     const cache = SegmentCache.init();
     const deleteTimer = new Map();
 
-    const logOpts = {
+    const logOpts: Record<string, string> = {
         publicKey: ops.publicKey,
-        apiEndpoint: ops.apiEndpoint,
-        discoveryPlatformEndpoint: ops.discoveryPlatformEndpoint,
+        apiEndpoint: ops.apiEndpoint.href,
     };
+    if (ops.discoveryPlatform) {
+        logOpts.discoveryPlatformEndpoint = ops.discoveryPlatform.endpoint;
+    }
     log.info('%s started with %o', ExitNode.prettyPrint(peerId, Version, Date.now(), []), logOpts);
 
     return {
@@ -106,7 +120,7 @@ async function setup(ops: Ops): Promise<State> {
 }
 
 function setupSocket(state: State, ops: Ops) {
-    const socket = NodeApi.connectWS(ops);
+    const socket = connectWS(ops);
     if (!socket) {
         log.error('error opening websocket');
         process.exit(3);
@@ -116,18 +130,27 @@ function setupSocket(state: State, ops: Ops) {
 
     socket.on('error', (err: Error) => {
         log.error('error on socket: %o', err);
-        socket.onmessage = false;
+        socket.onmessage = null;
         socket.close();
     });
 
-    socket.on('close', (evt: WS.CloseEvent) => {
+    socket.on('close', (evt: WebSocket.CloseEvent) => {
         log.warn('closing socket %o - attempting reconnect', evt);
+        clearInterval(state.heartbeatInterval);
         // attempt reconnect
         setTimeout(() => setupSocket(state, ops), SocketReconnectTimeout);
     });
 
     socket.on('open', () => {
         log.verbose('opened websocket listener');
+        clearInterval(state.heartbeatInterval);
+        state.heartbeatInterval = setInterval(() => {
+            socket.ping((err?: Error) => {
+                if (err) {
+                    log.error('error on ping: %o', err);
+                }
+            });
+        }, HeartBeatInterval);
     });
 
     state.socket = socket;
@@ -147,7 +170,7 @@ function removeExpired(state: State) {
 }
 
 function scheduleRemoveExpired(state: State) {
-    // schdule next run somehwere between 1h and 1h and 10m
+    // schedule next run somehwere between 1h and 1h and 10m
     const next = ValidCounterPeriod + Math.floor(Math.random() * 10 * 60e3);
     const logH = Math.floor(next / 1000 / 60 / 60);
     const logM = Math.round(next / 1000 / 60) - logH * 60;
@@ -201,7 +224,7 @@ function scheduleSetupRelays(state: State, ops: Ops) {
 }
 
 function onMessage(state: State, ops: Ops) {
-    return function (evt: WS.MessageEvent) {
+    return function (evt: WebSocket.MessageEvent) {
         const recvAt = performance.now();
         const raw = evt.data.toString();
         const msg = JSON.parse(raw) as Msg;
@@ -499,35 +522,57 @@ function sendResponse(
         });
     });
 
-    // inform DP non blocking
-    setTimeout(() => {
-        const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
-        const rpcMethod = determineRPCmethod(reqPayload.body);
-        const quotaRequest: DpApi.QuotaParams = {
-            clientId: reqPayload.clientId,
-            rpcMethod,
-            segmentCount: cacheEntry.count,
-            lastSegmentLength: lastReqSeg.body.length,
-            chainId: reqPayload.chainId,
-            type: 'request',
-        };
-
-        const lastRespSeg = segments[segments.length - 1];
-        const quotaResponse: DpApi.QuotaParams = {
-            clientId: reqPayload.clientId,
-            rpcMethod,
-            segmentCount: segments.length,
-            lastSegmentLength: lastRespSeg.body.length,
-            chainId: reqPayload.chainId,
-            type: 'response',
-        };
-
-        DpApi.postQuota(ops, quotaRequest).catch((err) => {
-            log.error('error recording request quota: %o', err);
+    if (ops.discoveryPlatform) {
+        reportToDiscoveryPlatform({
+            cacheEntry,
+            opsDP: ops.discoveryPlatform,
+            reqPayload,
+            segments,
         });
-        DpApi.postQuota(ops, quotaResponse).catch((err) => {
-            log.error('error recording response quota: %o', err);
-        });
+    }
+}
+
+async function reportToDiscoveryPlatform({
+    cacheEntry,
+    opsDP,
+    reqPayload,
+    segments,
+}: {
+    cacheEntry: SegmentCache.Entry;
+    opsDP: OpsDP;
+    reqPayload: Payload.ReqPayload;
+    segments: Segment.Segment[];
+}) {
+    const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
+    const rpcMethod = determineRPCmethod(reqPayload.body);
+    const quotaRequest: DpApi.QuotaParams = {
+        clientId: reqPayload.clientId,
+        rpcMethod,
+        segmentCount: cacheEntry.count,
+        lastSegmentLength: lastReqSeg.body.length,
+        chainId: reqPayload.chainId,
+        type: 'request',
+    };
+
+    const lastRespSeg = segments[segments.length - 1];
+    const quotaResponse: DpApi.QuotaParams = {
+        clientId: reqPayload.clientId,
+        rpcMethod,
+        segmentCount: segments.length,
+        lastSegmentLength: lastRespSeg.body.length,
+        chainId: reqPayload.chainId,
+        type: 'response',
+    };
+
+    const conn = {
+        discoveryPlatformEndpoint: opsDP.endpoint,
+        nodeAccessToken: opsDP.nodeAccessToken,
+    };
+    DpApi.postQuota(conn, quotaRequest).catch((err) => {
+        log.error('error recording request quota: %o', err);
+    });
+    DpApi.postQuota(conn, quotaResponse).catch((err) => {
+        log.error('error recording response quota: %o', err);
     });
 }
 
@@ -547,6 +592,13 @@ function determineRPCmethod(body?: string) {
     }
 }
 
+function connectWS({ apiEndpoint, accessToken }: Ops): WebSocket {
+    const wsURL = new URL('/api/v3/messages/websocket', apiEndpoint);
+    wsURL.protocol = apiEndpoint.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsURL.search = `?apiToken=${accessToken}`;
+    return new WebSocket(wsURL);
+}
+
 // if this file is the entrypoint of the nodejs process
 if (require.main === module) {
     if (!process.env.UHTTP_EA_PRIVATE_KEY) {
@@ -561,14 +613,22 @@ if (require.main === module) {
     if (!process.env.UHTTP_EA_HOPRD_ACCESS_TOKEN) {
         throw new Error("Missing 'UHTTP_EA_HOPRD_ACCESS_TOKEN' env var.");
     }
-    if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT) {
-        throw new Error("Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT' env var.");
-    }
-    if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN) {
-        throw new Error("Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN' env var.");
-    }
     if (!process.env.UHTTP_EA_DATABASE_FILE) {
         throw new Error("Missing 'UHTTP_EA_DATABASE_FILE' env var.");
+    }
+
+    const dpEndpoint = process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT;
+    let discoveryPlatform;
+    if (dpEndpoint) {
+        if (!process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN) {
+            throw new Error(
+                "Missing 'UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN' env var alongside provided UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT.",
+            );
+        }
+        discoveryPlatform = {
+            endpoint: dpEndpoint,
+            nodeAccessToken: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN,
+        };
     }
 
     start({
@@ -576,8 +636,7 @@ if (require.main === module) {
         publicKey: process.env.UHTTP_EA_PUBLIC_KEY,
         apiEndpoint: new URL(process.env.UHTTP_EA_HOPRD_ENDPOINT),
         accessToken: process.env.UHTTP_EA_HOPRD_ACCESS_TOKEN,
-        discoveryPlatformEndpoint: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT,
-        nodeAccessToken: process.env.UHTTP_EA_DISCOVERY_PLATFORM_ACCESS_TOKEN,
+        discoveryPlatform,
         dbFile: process.env.UHTTP_EA_DATABASE_FILE,
     });
 }
