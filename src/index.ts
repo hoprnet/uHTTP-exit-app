@@ -18,15 +18,15 @@ import * as RequestStore from './request-store';
 import Version from './version';
 
 // WebSocket heartbeats
-const HeartBeatInterval = 30e3; // 30sek
+const HeartBeatInterval = 30e3; // 30 sec
 // Hoprd nodes version to be considered as valid relays
 const RelayNodesCompatVersions = ['2.1'];
 // Removing segments from incomplete requests after this grace period
-const RequestPurgeTimeout = 60e3; // 60sek
+const RequestPurgeTimeout = 60e3; // 60 sec
 // base interval for checking relays
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
 // reconnect timeout for the websocket after closure
-const SocketReconnectTimeout = 3e3; // 3sek
+const SocketReconnectTimeout = 3e3; // 3 sec
 // Time period in which counters for crypto are considered valid
 const ValidCounterPeriod = 1e3 * 60 * 60; // 1hour
 
