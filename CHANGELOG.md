@@ -1,5 +1,15 @@
 # uhttp-exit-app
 
+## 3.1.0
+
+### Minor Changes
+
+-   1fc0027: Enable exit application startup without connecting to discovery platform
+
+### Patch Changes
+
+-   1fc0027: Implemented client side heartbeat to determine websocket disconnects
+
 ## 3.0.3
 
 ### Patch Changes
