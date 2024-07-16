@@ -175,7 +175,7 @@ function scheduleRemoveExpired(state: State) {
     const logH = Math.floor(next / 1000 / 60 / 60);
     const logM = Math.round(next / 1000 / 60) - logH * 60;
 
-    log.info('scheduling next removeExpired in %dh%dm', logH, logM);
+    log.info('scheduling next remove expired requests in %dh%dm', logH, logM);
     setTimeout(() => removeExpired(state), next);
 }
 
