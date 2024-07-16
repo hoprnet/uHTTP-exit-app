@@ -11,6 +11,7 @@ CI will create a new container image on a tagged version on main.
 -   run `yarn changeset version` to create the current changelog
 -   run `yarn build` to update version info
 -   commit everything, create a matching tag and push to main
+-   update container tag `stable` in container registry as needed
 
 ## Run with Docker
 

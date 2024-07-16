@@ -20,7 +20,7 @@ import Version from './version';
 // WebSocket heartbeats
 const HeartBeatInterval = 30e3; // 30 sec
 // Hoprd nodes version to be considered as valid relays
-const RelayNodesCompatVersions = ['2.1'];
+const RelayNodesCompatVersions = ['2.1', '2.2'];
 // Removing segments from incomplete requests after this grace period
 const RequestPurgeTimeout = 60e3; // 60 sec
 // base interval for checking relays
