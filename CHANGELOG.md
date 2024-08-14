@@ -1,5 +1,11 @@
 # uhttp-exit-app
 
+## 3.1.2
+
+### Patch Changes
+
+-   64a9362: Log domain no quota reporting
+
 ## 3.1.0
 
 ### Minor Changes
