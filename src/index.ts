@@ -545,12 +545,16 @@ async function reportToDiscoveryPlatform({
 }) {
     const lastReqSeg = cacheEntry.segments.get(cacheEntry.count - 1) as Segment.Segment;
     const rpcMethod = determineRPCmethod(reqPayload.body);
+    const url = new URL(reqPayload.endpoint);
+    const domain = url.hostname;
+
     const quotaRequest: DpApi.QuotaParams = {
         clientId: reqPayload.clientId,
         rpcMethod,
         segmentCount: cacheEntry.count,
         lastSegmentLength: lastReqSeg.body.length,
         chainId: reqPayload.chainId,
+        domain,
         type: 'request',
     };
 
@@ -561,6 +565,7 @@ async function reportToDiscoveryPlatform({
         segmentCount: segments.length,
         lastSegmentLength: lastRespSeg.body.length,
         chainId: reqPayload.chainId,
+        domain,
         type: 'response',
     };
 

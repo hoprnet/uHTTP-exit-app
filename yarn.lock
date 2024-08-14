@@ -573,10 +573,10 @@
     "@noble/curves" "^1.3.0"
     "@noble/hashes" "^1.3.3"
 
-"@hoprnet/uhttp-lib@^3.0.2":
-  version "3.0.2"
-  resolved "https://registry.yarnpkg.com/@hoprnet/uhttp-lib/-/uhttp-lib-3.0.2.tgz#5ad0f5fd0771cb1b1ff895d23fe3c5678c5a1b43"
-  integrity sha512-J2LDSH0Fu7DlH/e3Iv1NKW9JTb7Y7xXD1LxkuHI9hyDm3cePSG3g1f6DR1p+rJLldRFgVqnuJENOaz/kRPmx6g==
+"@hoprnet/uhttp-lib@^3.3.0":
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/@hoprnet/uhttp-lib/-/uhttp-lib-3.3.0.tgz#11ab38f3da1bd6dca6ecc93e19e582fc827ab313"
+  integrity sha512-oFw+eCSO2uyaCmp48JazzyilPSZ8Z2SW7JAoq40YpKbiilG7rqWW+sdVWHegjqdN2RNJJnNFonXT+7UWdE0mSw==
   dependencies:
     "@hoprnet/uhttp-crypto" "^1.0.1"
     debug "^4.3.4"
