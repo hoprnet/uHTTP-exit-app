@@ -49,12 +49,14 @@ jobs:
               run: yarn test
 
             - name: Get PR version
+              if: matrix.node-version == vars.NODE_VERSION
               id: variables
               run: |
                   PR_VERSION=$(node -p "require('./package.json').version")-pr.${{ github.event.pull_request.number }}
                   echo "PR_VERSION=${PR_VERSION}" >> $GITHUB_OUTPUT
 
             - name: Build and push docker image
+              if: matrix.node-version == vars.NODE_VERSION
               uses: docker/build-push-action@v4
               with:
                 push: true
