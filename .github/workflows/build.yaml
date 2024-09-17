@@ -36,7 +36,6 @@ jobs:
             - name: Testing
               run: yarn test
 
-
     publish:
         name: Publish
         runs-on: self-hosted-hoprnet-small
