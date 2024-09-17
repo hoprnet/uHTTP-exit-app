@@ -4,14 +4,9 @@
 
 uHTTP exit application attaches to an exit node and performs arbitrary incoming HTTP requests for clients.
 
-## Deployment
+## Deployment process
 
-CI will create a new container image on a tagged version on main.
-
--   run `yarn changeset version` to create the current changelog
--   run `yarn build` to update version info
--   commit everything, create a matching tag and push to main
--   update container tag `stable` in container registry as needed
+To contribute to this repository you will need to create a pull request. More information about the existing automated workflows can be found in [GitHub Actions](./.github/workflows/README.md)
 
 ## Run with Docker
 
