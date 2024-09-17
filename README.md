@@ -8,7 +8,6 @@ uHTTP exit application attaches to an exit node and performs arbitrary incoming 
 
 To contribute to this repository you will need to create a pull request. More information about the existing automated workflows can be found in [GitHub Actions](./.github/workflows/README.md)
 
-
 ## Run with Docker
 
 To be able to run the Exit Node with Docker, you first need to build the image, for that, we will use the following command
