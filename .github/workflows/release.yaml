@@ -41,7 +41,7 @@ jobs:
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
               with:
-                driver: kubernetes
+                  driver: kubernetes
 
             - name: Building
               run: yarn build
@@ -67,12 +67,11 @@ jobs:
                   name: 'uhttp-exit-app - v${{ steps.environment.outputs.release_version }}'
                   tag_name: v${{ steps.environment.outputs.release_version }}
 
-
             - name: Build and push docker image
               uses: docker/build-push-action@v4
               with:
-                push: true
-                tags: ${{ vars.DOCKER_IMAGE_REGISTRY }}/${{ vars.DOCKER_IMAGE_NAME }}:${{ steps.environment.outputs.release_version }}
+                  push: true
+                  tags: ${{ vars.DOCKER_IMAGE_REGISTRY }}/${{ vars.DOCKER_IMAGE_NAME }}:${{ steps.environment.outputs.release_version }}
 
             - name: Bump Version
               id: bump

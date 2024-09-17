@@ -25,3 +25,6 @@ coverage/
 
 # dependencies
 node_modules/
+
+# Created by github pipeline
+gha-creds-*.json
