@@ -64,7 +64,7 @@ jobs:
             - name: Create Release
               uses: softprops/action-gh-release@v2
               with:
-                  name: 'uhttp-exit-app - v${{ steps.environment.outputs.release_version }}'
+                  name: '${{ vars.DOCKER_IMAGE_NAME }} - v${{ steps.environment.outputs.release_version }}'
                   tag_name: v${{ steps.environment.outputs.release_version }}
 
             - name: Build and push docker image
