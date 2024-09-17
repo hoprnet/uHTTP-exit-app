@@ -52,8 +52,8 @@ jobs:
               if: matrix.node-version == vars.NODE_VERSION
               id: variables
               run: |
-                  PR_VERSION=$(node -p "require('./package.json').version")-pr.${{ github.event.pull_request.number }}
-                  echo "PR_VERSION=${PR_VERSION}" >> $GITHUB_OUTPUT
+                  PR_VERSION=$(node -p "require('./package.json').version")
+                  echo "PR_VERSION=${PR_VERSION}-pr.${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
 
             - name: Build and push docker image
               if: matrix.node-version == vars.NODE_VERSION
