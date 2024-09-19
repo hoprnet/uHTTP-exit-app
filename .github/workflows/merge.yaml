@@ -21,11 +21,6 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v4
 
-            - name: Setup Node.js
-              uses: hoprnet/hopr-workflows/actions/setup-node-js@master
-              with:
-                  node-version: ${{ vars.NODE_VERSION }}
-
             - name: Setup GCP
               id: gcp
               uses: hoprnet/hopr-workflows/actions/setup-gcp@master
