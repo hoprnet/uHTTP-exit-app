@@ -68,7 +68,7 @@ jobs:
                   tag_name: v${{ steps.environment.outputs.release_version }}
 
             - name: Build and push docker image
-              uses: docker/build-push-action@v4
+              uses: docker/build-push-action@v6
               with:
                   push: true
                   tags: ${{ vars.DOCKER_IMAGE_REGISTRY }}/${{ vars.DOCKER_IMAGE_NAME }}:${{ steps.environment.outputs.release_version }}

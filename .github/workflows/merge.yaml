@@ -21,11 +21,6 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v4
 
-            - name: Setup Node.js
-              uses: hoprnet/hopr-workflows/actions/setup-node-js@master
-              with:
-                  node-version: ${{ vars.NODE_VERSION }}
-
             - name: Setup GCP
               id: gcp
               uses: hoprnet/hopr-workflows/actions/setup-gcp@master
@@ -39,7 +34,7 @@ jobs:
                   driver: kubernetes
 
             - name: Build and push docker image
-              uses: docker/build-push-action@v4
+              uses: docker/build-push-action@v6
               with:
                   push: true
                   tags: ${{ vars.DOCKER_IMAGE_REGISTRY }}/${{ vars.DOCKER_IMAGE_NAME }}:latest
