@@ -191,7 +191,9 @@ function removeExpiredRequests(state: State) {
 }
 
 function scheduleRemoveExpiredSegmentResponses(state: State) {
-    setTimeout(function () {
+    const logM = ValidResponseSegmentPeriod / 1000 / 60;
+    log.info('scheduling next remove expired response segments in %dm', logM);
+    setTimeout(() => {
         removeExpiredSegmentResponses(state);
     }, ValidResponseSegmentPeriod);
 }
@@ -372,7 +374,6 @@ function onRetransferSegmentsReq(state: State, ops: Ops, msg: Msg) {
     const hops = parseInt(hopsStr, 10);
     const conn = { ...ops, hops };
     const segNrs = rawSegNrs.split(',').map((s) => parseInt(s));
-    console.log('segNrs', segNrs);
 
     log.verbose('reading segment nrs for %s from db: %o', requestId, segNrs);
     ResponseSegmentStore.all(state.db, requestId, segNrs)
@@ -392,7 +393,7 @@ function onRetransferSegmentsReq(state: State, ops: Ops, msg: Msg) {
                         .catch((err: Error) => {
                             log.error('error retransferring %s: %o', Segment.prettyPrint(seg), err);
                         });
-                }, idx);
+                }, idx * 10);
             });
         })
         .catch((err) => {
@@ -598,7 +599,7 @@ function sendResponse(
                     // remove relay if it fails
                     state.relays = state.relays.filter((r) => r !== relay);
                 });
-        }, idx);
+        }, idx * 10);
     });
 
     if (ops.discoveryPlatform) {
