@@ -29,3 +29,5 @@ node_modules/
 
 # Created by github pipeline
 gha-creds-*.json
+
+*.sqlite3

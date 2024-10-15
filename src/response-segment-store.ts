@@ -53,15 +53,9 @@ export function put(db: DB, segment: Segment.Segment, insertedAt: number): Promi
         db.run(
             [
                 'INSERT INTO response_segment_store (request_id, nr, total_count, body, inserted_at)',
-                'VALUES ($requestId, $nr, $totalCount, $body, $insertedAt);',
+                'VALUES (?, ?, ?, ?, ?);',
             ].join(' '),
-            {
-                $requestId: segment.requestId,
-                $nr: segment.nr,
-                $totalCount: segment.totalCount,
-                $body: segment.body,
-                $insertedAt: insertedAt,
-            },
+            [segment.requestId, segment.nr, segment.totalCount, segment.body, insertedAt],
             (err) => {
                 if (err) {
                     return rej(`Error inserting segment into response_segment_store: ${err}`);
@@ -73,29 +67,36 @@ export function put(db: DB, segment: Segment.Segment, insertedAt: number): Promi
 }
 
 export function all(db: DB, requestId: string, segmentNrs: number[]): Promise<Segment.Segment[]> {
+    // manually handle IN operator behaviour
+    const placeholders = segmentNrs.map(() => '?').join(',');
+    const params: Record<number, string | number> = { 1: requestId };
+    for (let i = 0; i < segmentNrs.length; i++) {
+        // sql indexes start at 1 - which was already used for requestId
+        params[i + 2] = segmentNrs[i];
+    }
+    const select = [
+        'SELECT nr, body, total_count FROM response_segment_store',
+        `WHERE request_id = ? and nr in (${placeholders})`,
+    ].join(' ');
     return new Promise((res, rej) => {
-        db.all(
-            [
-                'SELECT nr, body, total_count FROM response_segment_store',
-                'WHERE request_id = $requestId and nr in $nrs',
-            ].join(' '),
-            { $requestId: requestId, $nrs: segmentNrs },
-            function (err, rows) {
-                if (err) {
-                    return rej(`Error selecting segment from response_segment_store: ${err}`);
-                }
-                const segments = rows.map((rawRow) => {
-                    const row = rawRow as { nr: number; total_count: number; body: string };
-                    return {
-                        requestId,
-                        nr: row.nr,
-                        totalCount: row.total_count,
-                        body: row.body,
-                    };
-                });
-                return res(segments);
-            },
-        );
+        db.all(select, params, function (err: any, rows: any) {
+            if (err) {
+                return rej(`Error selecting segment from response_segment_store: ${err}`);
+            }
+            if (!rows) {
+                return rej('Unable to find any segments matching missing segments request');
+            }
+            const segments = rows.map((rawRow: any) => {
+                const row = rawRow as { nr: number; total_count: number; body: string };
+                return {
+                    requestId,
+                    nr: row.nr,
+                    totalCount: row.total_count,
+                    body: row.body,
+                };
+            });
+            return res(segments);
+        });
     });
 }
 

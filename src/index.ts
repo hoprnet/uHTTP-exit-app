@@ -271,7 +271,7 @@ function onMessage(state: State, ops: Ops) {
         }
 
         // determine if segment retransfer
-        if (msg.body.startsWith('resg-')) {
+        if (msg.body.startsWith('resg;')) {
             return onRetransferSegmentsReq(state, ops, msg);
         }
 
@@ -367,23 +367,31 @@ function onInfoReq(state: State, ops: Ops, msg: Msg) {
 
 function onRetransferSegmentsReq(state: State, ops: Ops, msg: Msg) {
     log.info('received retransfer segments req:', msg.body);
-    // resg-originPeerId-hops-requestId-segmentNrs
-    const [, recipient, hopsStr, requestId, rawSegNrs] = msg.body.split('-');
+    // resg;originPeerId;hops;requestId;segmentNrs
+    const [, recipient, hopsStr, requestId, rawSegNrs] = msg.body.split(';');
     const hops = parseInt(hopsStr, 10);
     const conn = { ...ops, hops };
-    const segNrs = rawSegNrs.split(',').map(parseInt);
+    const segNrs = rawSegNrs.split(',').map((s) => parseInt(s));
+    console.log('segNrs', segNrs);
 
+    log.verbose('reading segment nrs for %s from db: %o', requestId, segNrs);
     ResponseSegmentStore.all(state.db, requestId, segNrs)
         .then((segments) => {
-            segments.map((seg, idx) => {
+            segments.forEach((seg, idx) => {
                 setTimeout(() => {
+                    const segLog = Segment.prettyPrint(seg);
+                    log.verbose('retransferring %s to %s', segLog, recipient);
                     NodeApi.sendMessage(conn, {
                         recipient,
                         tag: msg.tag,
                         message: Segment.toMessage(seg),
-                    }).catch((err: Error) => {
-                        log.error('error retransferring %s: %o', Segment.prettyPrint(seg), err);
-                    });
+                    })
+                        .then((r) => {
+                            log.verbose('retransfer response %s: %o', segLog, r);
+                        })
+                        .catch((err: Error) => {
+                            log.error('error retransferring %s: %o', Segment.prettyPrint(seg), err);
+                        });
                 }, idx);
             });
         })
@@ -572,17 +580,24 @@ function sendResponse(
     // queue segment sending for all of them
     const ts = Date.now();
     segments.forEach((seg: Segment.Segment, idx) => {
-        setTimeout(function () {
-            ResponseSegmentStore.put(state.db, seg, ts);
+        const segLog = Segment.prettyPrint(seg);
+        log.verbose('putting %s into db at %d ', segLog, ts);
+        ResponseSegmentStore.put(state.db, seg, ts);
+        setTimeout(() => {
+            log.verbose('sending %s to %s', segLog, entryPeerId);
             NodeApi.sendMessage(conn, {
                 recipient: entryPeerId,
                 tag,
                 message: Segment.toMessage(seg),
-            }).catch((err: Error) => {
-                log.error('error sending %s: %o', Segment.prettyPrint(seg), err);
-                // remove relay if it fails
-                state.relays = state.relays.filter((r) => r !== relay);
-            });
+            })
+                .then((r) => {
+                    log.verbose('response %s: %o', segLog, r);
+                })
+                .catch((err: Error) => {
+                    log.error('error sending %s: %o', Segment.prettyPrint(seg), err);
+                    // remove relay if it fails
+                    state.relays = state.relays.filter((r) => r !== relay);
+                });
         }, idx);
     });
 
