@@ -441,7 +441,7 @@ async function completeSegmentsEntry(
     }
 
     // check uuid
-    const res = await RequestStore.addIfAbsent(state.requestStore, requestId, counter);
+    const res = await RequestStore.addIfAbsent(state.db, requestId, counter);
     if (res === RequestStore.AddRes.Duplicate) {
         log.info('duplicate request id:', requestId);
         // duplicate fail resp
