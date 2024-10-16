@@ -1,38 +1,40 @@
 import * as reqStore from './request-store';
+import * as DB from './db';
 
-let store: reqStore.RequestStore;
+let db: DB.DB;
 
 describe('request store', function () {
     beforeEach(async () => {
         // setup fluent database on disk
-        store = await reqStore.setup('');
+        db = await DB.setup('');
+        await reqStore.setup(db);
     });
 
-    afterEach(async () => reqStore.close(store));
+    afterEach(async () => DB.close(db));
 
     it('addIfAbsent adds correctly', async function () {
-        const res = await reqStore.addIfAbsent(store, 'foobar', Date.now());
+        const res = await reqStore.addIfAbsent(db, 'foobar', Date.now());
         expect(res).toBe(reqStore.AddRes.Success);
     });
 
     it('addIfAbsent detects duplicates', async function () {
-        await reqStore.addIfAbsent(store, 'foobar', Date.now());
-        const res = await reqStore.addIfAbsent(store, 'foobar', Date.now());
+        await reqStore.addIfAbsent(db, 'foobar', Date.now());
+        const res = await reqStore.addIfAbsent(db, 'foobar', Date.now());
         expect(res).toBe(reqStore.AddRes.Duplicate);
     });
 
     it('removeExpired removes olderThan entries', async function () {
         const now = Date.now();
         await Promise.all([
-            reqStore.addIfAbsent(store, 'foobar1', now - 100),
-            reqStore.addIfAbsent(store, 'foobar2', now - 100),
-            reqStore.addIfAbsent(store, 'foobar3', now - 50),
+            reqStore.addIfAbsent(db, 'foobar1', now - 100),
+            reqStore.addIfAbsent(db, 'foobar2', now - 100),
+            reqStore.addIfAbsent(db, 'foobar3', now - 50),
         ]);
 
-        await reqStore.removeExpired(store, now - 50);
+        await reqStore.removeExpired(db, now - 50);
 
         const p = new Promise<void>((res) => {
-            store.db.all('SELECT * from request_store', (err, rows) => {
+            db.all('SELECT * from request_store', (err, rows) => {
                 expect(err).toBe(null);
                 expect(rows).toHaveLength(1);
                 const row = rows[0] as { uuid: string; counter: number };
