@@ -58,6 +58,7 @@ type Ops = {
     accessToken: string;
     discoveryPlatform?: OpsDP;
     dbFile: string;
+    pinnedFetch: typeof globalThis.fetch;
 };
 
 type Msg = {
@@ -104,7 +105,8 @@ async function setup(ops: Ops): Promise<State> {
     }
 
     const { hopr: peerId } = resPeerId;
-    const cache = SegmentCache.init();
+    // we don't care for missing segments reminder in our cache
+    const cache = SegmentCache.init(function () {});
     const deleteTimer = new Map();
 
     const logOpts: Record<string, string> = {
@@ -459,22 +461,19 @@ async function completeSegmentsEntry(
 
     // do actual endpoint request
     const fetchStartedAt = performance.now();
-    const resFetch = await EndpointApi.fetchUrl(reqPayload.endpoint, reqPayload).catch(
-        (err: Error) => {
-            log.error(
-                'error doing RPC req on %s with %o: %o',
-                reqPayload.endpoint,
-                reqPayload,
-                err,
-            );
-            // HTTP critical fail response
-            const resp: Payload.RespPayload = {
-                type: Payload.RespType.Error,
-                reason: err.toString(),
-            };
-            return sendResponse(sendParams, resp);
-        },
-    );
+    const resFetch = await EndpointApi.fetchUrl(
+        ops.pinnedFetch,
+        reqPayload.endpoint,
+        reqPayload,
+    ).catch((err: Error) => {
+        log.error('error doing RPC req on %s with %o: %o', reqPayload.endpoint, reqPayload, err);
+        // HTTP critical fail response
+        const resp: Payload.RespPayload = {
+            type: Payload.RespType.Error,
+            reason: err.toString(),
+        };
+        return sendResponse(sendParams, resp);
+    });
     if (!resFetch) {
         return;
     }
@@ -604,8 +603,8 @@ function sendResponse(
 
     if (ops.discoveryPlatform) {
         reportToDiscoveryPlatform({
+            ops,
             cacheEntry,
-            opsDP: ops.discoveryPlatform,
             reqPayload,
             segments,
         });
@@ -613,13 +612,13 @@ function sendResponse(
 }
 
 async function reportToDiscoveryPlatform({
+    ops,
     cacheEntry,
-    opsDP,
     reqPayload,
     segments,
 }: {
     cacheEntry: SegmentCache.Entry;
-    opsDP: OpsDP;
+    ops: Ops;
     reqPayload: Payload.ReqPayload;
     segments: Segment.Segment[];
 }) {
@@ -649,9 +648,11 @@ async function reportToDiscoveryPlatform({
         type: 'response',
     };
 
+    const dp = ops.discoveryPlatform as OpsDP;
     const conn = {
-        discoveryPlatformEndpoint: opsDP.endpoint,
-        nodeAccessToken: opsDP.nodeAccessToken,
+        discoveryPlatformEndpoint: dp.endpoint,
+        nodeAccessToken: dp.nodeAccessToken,
+        pinnedFetch: ops.pinnedFetch,
     };
     DpApi.postQuota(conn, quotaRequest).catch((err) => {
         log.error('error recording request quota: %o', err);
@@ -723,5 +724,6 @@ if (require.main === module) {
         accessToken: process.env.UHTTP_EA_HOPRD_ACCESS_TOKEN,
         discoveryPlatform,
         dbFile: process.env.UHTTP_EA_DATABASE_FILE,
+        pinnedFetch: globalThis.fetch.bind(globalThis),
     });
 }
