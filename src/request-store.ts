@@ -1,22 +1,12 @@
-import sqlite3 from 'sqlite3';
-
-export type RequestStore = {
-    db: sqlite3.Database;
-};
+import type { DB } from './db';
 
 export enum AddRes {
     Success,
     Duplicate,
 }
 
-export function setup(dbFile: string): Promise<RequestStore> {
+export function setup(db: DB): Promise<void> {
     return new Promise((res, rej) => {
-        const db = new sqlite3.Database(dbFile, (err) => {
-            if (err) {
-                return rej(`Error creating db: ${err}`);
-            }
-        });
-
         db.serialize(() => {
             db.run(
                 'CREATE TABLE IF NOT EXISTS request_store (uuid TEXT PRIMARY KEY, counter INTEGER)',
@@ -33,14 +23,14 @@ export function setup(dbFile: string): Promise<RequestStore> {
                     if (err) {
                         return rej(`Error creating index request_store_counter_index: ${err}`);
                     }
-                    return res({ db });
+                    return res();
                 },
             );
         });
     });
 }
 
-export function addIfAbsent({ db }: RequestStore, id: string, counter: number): Promise<AddRes> {
+export function addIfAbsent(db: DB, id: string, counter: number): Promise<AddRes> {
     return new Promise((res, rej) => {
         db.run(
             'INSERT INTO request_store (uuid, counter) VALUES ($id, $counter);',
@@ -63,7 +53,7 @@ export function addIfAbsent({ db }: RequestStore, id: string, counter: number): 
     });
 }
 
-export function removeExpired({ db }: RequestStore, olderThan: number): Promise<void> {
+export function removeExpired(db: DB, olderThan: number): Promise<void> {
     return new Promise((res, rej) => {
         db.run(
             'DELETE FROM request_store where counter < $counter;',
@@ -75,16 +65,5 @@ export function removeExpired({ db }: RequestStore, olderThan: number): Promise<
                 return res();
             },
         );
-    });
-}
-
-export function close({ db }: RequestStore): Promise<void> {
-    return new Promise((res, rej) => {
-        db.close((err) => {
-            if (err) {
-                return rej(`Error closing db: ${err}`);
-            }
-            return res();
-        });
     });
 }
