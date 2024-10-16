@@ -496,11 +496,12 @@ function sendResponse(
     const relayString = relay ? `(r${Utils.shortPeerId(relay)})` : '';
 
     log.verbose(
-        'returning message to e%s%s, tag: %s, requestId: %s',
+        'returning message to e%s%s, tag: %s, requestId: %s, segmentCount: %d',
         Utils.shortPeerId(entryPeerId),
         relayString,
         tag,
         requestId,
+        segments.length,
     );
 
     const conn = {
