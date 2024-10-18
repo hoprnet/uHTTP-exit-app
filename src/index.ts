@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { version as Version } from '../package.json';
 import {
     DpApi,
     EndpointApi,
@@ -16,7 +17,7 @@ import {
 import * as DB from './db';
 import * as RequestStore from './request-store';
 import * as ResponseSegmentStore from './response-segment-store';
-import Version from './version';
+
 import log from './logger';
 
 // WebSocket heartbeats
