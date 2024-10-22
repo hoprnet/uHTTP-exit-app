@@ -6,8 +6,7 @@
     "main": "src/index.ts",
     "license": "GPL-3.0",
     "scripts": {
-        "prebuild": "node -p \"'export default \\'' + require('./package.json').version + '\\';'\" > src/version.ts",
-        "build": "yarn prebuild && tsc",
+        "build": "tsc",
         "format": "prettier --write src/ .github/ *.js *.ts *.json *.md",
         "format:ci": "prettier --check src/ .github/ *.js *.ts *.json *.md",
         "lint": "eslint --fix src/",
@@ -32,7 +31,7 @@
         "typescript": "^5.4.5"
     },
     "dependencies": {
-        "@hoprnet/uhttp-lib": "^3.7.2",
+        "@hoprnet/uhttp-lib": "^3.8.0",
         "debug": "^4.3.4",
         "sqlite3": "^5.1.7",
         "ws": "^8.18.0"
