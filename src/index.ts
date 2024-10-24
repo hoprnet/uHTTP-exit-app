@@ -65,6 +65,7 @@ type Ops = {
     discoveryPlatform?: OpsDP;
     dbFile: string;
     pinnedFetch: typeof globalThis.fetch;
+    tcpPort: number;
 };
 
 type Msg = {
@@ -184,6 +185,10 @@ function setupServer(state: State, ops: Ops) {
         log.warn('closing server - attempting reconnect');
         setTimeout(() => setupServer(state, ops), ServerRestartTimeout);
     });
+
+    server.listen(ops.tcpPort, () => {
+        log.verbose('tcp server bound to %d', ops.tcpPort);
+    });
 }
 
 function onConnection(state: State, ops: Ops) {
@@ -191,17 +196,24 @@ function onConnection(state: State, ops: Ops) {
         const recvAt = performance.now();
         let requestWrapper: Frame.RequestWrapper;
 
-        conn.on('data', function (data: Uint8Array) {
+        log.verbose('incoming connection at %d', Date.now());
+
+        conn.on('data', function (rawData: Uint8Array) {
+            const data = new Uint8Array(rawData);
+            log.verbose('data incoming: %d', data.length);
             if (requestWrapper) {
+                log.verbose('concating data');
                 Frame.concatData(requestWrapper, data);
             } else {
+                log.verbose('initial data');
                 const resWrap = Frame.toRequestFrameWrapper(data);
                 if (Res.isErr(resWrap)) {
-                    log.warn('discarding received data: %s', resWrap.error);
+                    log.warn('discarding received %d bytes: %s', data.length, resWrap.error);
                     return;
                 }
                 requestWrapper = resWrap.res;
             }
+            log.verbose('requestWrapper %o: %s', requestWrapper, Frame.isComplete(requestWrapper));
             if (Frame.isComplete(requestWrapper)) {
                 // requrest complete
                 onIncomingRequest(state, ops, conn, requestWrapper, recvAt);
@@ -883,6 +895,9 @@ if (require.main === module) {
     if (!process.env.UHTTP_EA_DATABASE_FILE) {
         throw new Error("Missing 'UHTTP_EA_DATABASE_FILE' env var.");
     }
+    if (!process.env.UHTTP_EA_TCPPORT) {
+        throw new Error("Missing 'UHTTP_EA_TCPPORT' env var.");
+    }
 
     const dpEndpoint = process.env.UHTTP_EA_DISCOVERY_PLATFORM_ENDPOINT;
     let discoveryPlatform;
@@ -906,5 +921,6 @@ if (require.main === module) {
         discoveryPlatform,
         dbFile: process.env.UHTTP_EA_DATABASE_FILE,
         pinnedFetch: globalThis.fetch.bind(globalThis),
+        tcpPort: parseInt(process.env.UHTTP_EA_TCPPORT),
     });
 }
