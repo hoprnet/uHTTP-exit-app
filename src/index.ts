@@ -189,17 +189,23 @@ function setupServer(state: State, ops: Ops) {
 function onConnection(state: State, ops: Ops) {
     return function (conn: Net.Socket) {
         const recvAt = performance.now();
-        let partialRequest: Frame.FirstFrameData;
+        let requestWrapper: Frame.RequestWrapper;
 
         conn.on('data', function (data: Uint8Array) {
-            if (partialRequest) {
-                partialRequest.data = Utils.concatBytes(partialRequest.data, data);
-                if (partialRequest.data.length === partialRequest.length) {
-                    // requrest complete
-                    onIncomingRequest(state, ops, conn, partialRequest, recvAt);
+            if (requestWrapper) {
+                Frame.concatData(requestWrapper, data);
+            } else {
+                const resWrap = Frame.toRequestFrameWrapper(data);
+                if (Res.isErr(resWrap)) {
+                    log.warn('discarding received data: %s', resWrap.error);
+                    return;
                 }
+                requestWrapper = resWrap.res;
             }
-            partialRequest = Frame.fromFirstFrame(data);
+            if (Frame.isComplete(requestWrapper)) {
+                // requrest complete
+                onIncomingRequest(state, ops, conn, requestWrapper, recvAt);
+            }
         });
 
         conn.on('end', () => {
@@ -216,12 +222,12 @@ async function onIncomingRequest(
     state: State,
     ops: Ops,
     conn: Net.Socket,
-    partialRequest: Frame.FirstFrameData,
+    requestWrapper: Frame.RequestWrapper,
     recvAt: number,
 ) {
     const resReq = Request.messageToReq({
-        requestId: partialRequest.requestId,
-        message: partialRequest.data,
+        requestId: requestWrapper.requestId,
+        message: requestWrapper.data,
         exitPeerId: state.peerId,
         exitPrivateKey: state.privateKey,
     });
@@ -235,8 +241,8 @@ async function onIncomingRequest(
     const { reqPayload, session: unboxSession } = unboxRequest;
     const sendParams = {
         conn,
-        entryPeerId: partialRequest.entryPeerId,
-        requestId: partialRequest.requestId,
+        entryPeerId: requestWrapper.entryId,
+        requestId: requestWrapper.requestId,
         unboxRequest,
     };
 
@@ -251,9 +257,9 @@ async function onIncomingRequest(
     }
 
     // check uuid
-    const res = await RequestStore.addIfAbsent(state.db, partialRequest.requestId, counter);
+    const res = await RequestStore.addIfAbsent(state.db, requestWrapper.requestId, counter);
     if (res === RequestStore.AddRes.Duplicate) {
-        log.info('duplicate request id: %s', partialRequest.requestId);
+        log.info('duplicate request id: %s', requestWrapper.requestId);
         // duplicate fail resp
         return respond(sendParams, { type: Payload.RespType.DuplicateFail });
     }
