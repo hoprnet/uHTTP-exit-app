@@ -196,16 +196,11 @@ function onConnection(state: State, ops: Ops) {
         const recvAt = performance.now();
         let requestWrapper: Frame.RequestWrapper;
 
-        log.verbose('incoming connection at %d', Date.now());
-
         conn.on('data', function (rawData: Uint8Array) {
             const data = new Uint8Array(rawData);
-            log.verbose('data incoming: %d', data.length);
             if (requestWrapper) {
-                log.verbose('concating data');
                 Frame.concatData(requestWrapper, data);
             } else {
-                log.verbose('initial data');
                 const resWrap = Frame.toRequestFrameWrapper(data);
                 if (Res.isErr(resWrap)) {
                     log.warn('discarding received %d bytes: %s', data.length, resWrap.error);
@@ -213,7 +208,6 @@ function onConnection(state: State, ops: Ops) {
                 }
                 requestWrapper = resWrap.res;
             }
-            log.verbose('requestWrapper %o: %s', requestWrapper, Frame.isComplete(requestWrapper));
             if (Frame.isComplete(requestWrapper)) {
                 // requrest complete
                 onIncomingRequest(state, ops, conn, requestWrapper, recvAt);
