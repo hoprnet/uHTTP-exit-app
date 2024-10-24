@@ -705,9 +705,6 @@ function respond(
     frames.forEach((f: Frame.Frame) => {
         conn.write(f);
     });
-    conn.end(() => {
-        log.verbose('closing connection to %s for request %s', entryPeerId, requestId);
-    });
 
     //     if (ops.discoveryPlatform) {
     //         reportToDiscoveryPlatform({
