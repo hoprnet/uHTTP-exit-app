@@ -186,27 +186,29 @@ function setupServer(state: State, ops: Ops) {
     });
 }
 
-function endListener() {
-    log.error('unexpected end of incoming socket connection');
-}
-
 function onConnection(state: State, ops: Ops) {
     return function (conn: Net.Socket) {
         const recvAt = performance.now();
         let partialRequest: Frame.FirstFrameData;
+
         conn.on('data', function (data: Uint8Array) {
             if (partialRequest) {
                 partialRequest.data = Utils.concatBytes(partialRequest.data, data);
                 if (partialRequest.data.length === partialRequest.length) {
                     // requrest complete
-                    conn.off('end', endListener);
                     onIncomingRequest(state, ops, conn, partialRequest, recvAt);
                 }
             }
             partialRequest = Frame.fromFirstFrame(data);
         });
 
-        conn.on('end', endListener);
+        conn.on('end', () => {
+            log.error('unexpected end of incoming socket connection');
+        });
+
+        conn.on('error', (err) => {
+            log.error('error on connection: %o', err);
+        });
     };
 }
 
@@ -231,8 +233,12 @@ async function onIncomingRequest(
 
     const unboxRequest = resReq.res;
     const { reqPayload, session: unboxSession } = unboxRequest;
-    const relay = determineRelay(state, reqPayload);
-    const sendParams = { state, ops, entryPeerId, cacheEntry, tag, relay, unboxRequest };
+    const sendParams = {
+        conn,
+        entryPeerId: partialRequest.entryPeerId,
+        requestId: partialRequest.requestId,
+        unboxRequest,
+    };
 
     // check counter
     const counter = Number(unboxSession.updatedTS);
@@ -241,15 +247,15 @@ async function onIncomingRequest(
     if (counter < valid) {
         log.info('counter %d outside valid period %d (now: %d)', counter, valid, now);
         // counter fail resp
-        return sendResponse(sendParams, { type: Payload.RespType.CounterFail, counter: now });
+        return respond(sendParams, { type: Payload.RespType.CounterFail, counter: now });
     }
 
     // check uuid
-    const res = await RequestStore.addIfAbsent(state.db, requestId, counter);
+    const res = await RequestStore.addIfAbsent(state.db, partialRequest.requestId, counter);
     if (res === RequestStore.AddRes.Duplicate) {
-        log.info('duplicate request id:', requestId);
+        log.info('duplicate request id: %s', partialRequest.requestId);
         // duplicate fail resp
-        return sendResponse(sendParams, { type: Payload.RespType.DuplicateFail });
+        return respond(sendParams, { type: Payload.RespType.DuplicateFail });
     }
 
     // do actual endpoint request
@@ -259,13 +265,13 @@ async function onIncomingRequest(
         reqPayload.endpoint,
         reqPayload,
     ).catch((err: Error) => {
-        log.error('error doing RPC req on %s with %o: %o', reqPayload.endpoint, reqPayload, err);
+        log.error('error during request to %s with %o: %o', reqPayload.endpoint, reqPayload, err);
         // HTTP critical fail response
         const resp: Payload.RespPayload = {
             type: Payload.RespType.Error,
             reason: err.toString(),
         };
-        return sendResponse(sendParams, resp);
+        return respond(sendParams, resp);
     });
     if (!resFetch) {
         return;
@@ -276,7 +282,7 @@ async function onIncomingRequest(
         type: Payload.RespType.Resp,
         ...resFetch,
     };
-    return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
+    return respond(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
 }
 
 function removeExpiredSegmentResponses(state: State) {
@@ -637,6 +643,62 @@ function addLatencies(
         default:
             return resp;
     }
+}
+
+function respond(
+    {
+        conn,
+        entryPeerId,
+        requestId,
+        unboxRequest: { session: unboxSession },
+    }: {
+        conn: Net.Socket;
+        entryPeerId: string;
+        requestId: string;
+        unboxRequest: Request.UnboxRequest;
+    },
+    respPayload: Payload.RespPayload,
+) {
+    const resResp = Response.respToMessage({
+        requestId,
+        entryPeerId,
+        respPayload,
+        unboxSession,
+    });
+    if (Res.isErr(resResp)) {
+        log.error('error boxing response: %o', resResp.error);
+        return;
+    }
+
+    const resFrames = Frame.toResponseFrames(resResp.res);
+    if (Res.isErr(resFrames)) {
+        log.error('error creating response frames: %o', resFrames.error);
+        return;
+    }
+
+    const frames = resFrames.res;
+    log.verbose(
+        'returning bytes to e%s, requestId: %s, frameCount: %d',
+        Utils.shortPeerId(entryPeerId),
+        requestId,
+        frames.length,
+    );
+
+    frames.forEach((f: Frame.Frame) => {
+        conn.write(f);
+    });
+    conn.end(() => {
+        log.verbose('closing connection to %s for request %s', entryPeerId, requestId);
+    });
+
+    //     if (ops.discoveryPlatform) {
+    //         reportToDiscoveryPlatform({
+    //             ops,
+    //             cacheEntry,
+    //             reqPayload,
+    //             segments,
+    //         });
+    //     }
 }
 
 function sendResponse(
