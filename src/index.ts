@@ -1,9 +1,11 @@
+import Net from 'node:net';
 import WebSocket from 'ws';
 import { version as Version } from '../package.json';
 import {
     DpApi,
     EndpointApi,
     ExitNode,
+    Frame,
     NodeApi,
     Payload,
     Request,
@@ -30,6 +32,8 @@ const RequestPurgeTimeout = 60e3; // 60 sec
 const SetupRelayPeriod = 1e3 * 60 * 15; // 15 min
 // reconnect timeout for the websocket after closure
 const SocketReconnectTimeout = 3e3; // 3 sec
+// restart server after closing
+const ServerRestartTimeout = 1e3; // 1 sec
 // Time period in which counters for crypto are considered valid
 const ValidCounterPeriod = 1e3 * 60 * 60; // 1 hour
 // Time period to keep segments for potential retransfer
@@ -37,6 +41,7 @@ const ValidResponseSegmentPeriod = 1e3 * 60 * 10; // 10 min
 
 type State = {
     socket?: WebSocket;
+    server?: Net.Server;
     privateKey: Uint8Array;
     publicKey: Uint8Array;
     peerId: string;
@@ -72,6 +77,7 @@ async function start(ops: Ops) {
     try {
         const state = await setup(ops);
         setupSocket(state, ops);
+        setupServer(state, ops);
         removeExpiredRequests(state);
         removeExpiredSegmentResponses(state);
         setupRelays(state, ops);
@@ -165,6 +171,112 @@ function setupSocket(state: State, ops: Ops) {
     });
 
     state.socket = socket;
+}
+
+function setupServer(state: State, ops: Ops) {
+    const server = Net.createServer(onConnection(state, ops));
+
+    server.on('error', (err: Error) => {
+        log.error('error on server: %o', err);
+    });
+
+    server.on('close', () => {
+        log.warn('closing server - attempting reconnect');
+        setTimeout(() => setupServer(state, ops), ServerRestartTimeout);
+    });
+}
+
+function endListener() {
+    log.error('unexpected end of incoming socket connection');
+}
+
+function onConnection(state: State, ops: Ops) {
+    return function (conn: Net.Socket) {
+        const recvAt = performance.now();
+        let partialRequest: Frame.FirstFrameData;
+        conn.on('data', function (data: Uint8Array) {
+            if (partialRequest) {
+                partialRequest.data = Utils.concatBytes(partialRequest.data, data);
+                if (partialRequest.data.length === partialRequest.length) {
+                    // requrest complete
+                    conn.off('end', endListener);
+                    onIncomingRequest(state, ops, conn, partialRequest, recvAt);
+                }
+            }
+            partialRequest = Frame.fromFirstFrame(data);
+        });
+
+        conn.on('end', endListener);
+    };
+}
+
+async function onIncomingRequest(
+    state: State,
+    ops: Ops,
+    conn: Net.Socket,
+    partialRequest: Frame.FirstFrameData,
+    recvAt: number,
+) {
+    const resReq = Request.messageToReq({
+        requestId: partialRequest.requestId,
+        message: partialRequest.data,
+        exitPeerId: state.peerId,
+        exitPrivateKey: state.privateKey,
+    });
+
+    if (Res.isErr(resReq)) {
+        log.error('error unboxing request:', resReq.error);
+        return;
+    }
+
+    const unboxRequest = resReq.res;
+    const { reqPayload, session: unboxSession } = unboxRequest;
+    const relay = determineRelay(state, reqPayload);
+    const sendParams = { state, ops, entryPeerId, cacheEntry, tag, relay, unboxRequest };
+
+    // check counter
+    const counter = Number(unboxSession.updatedTS);
+    const now = Date.now();
+    const valid = now - ValidCounterPeriod;
+    if (counter < valid) {
+        log.info('counter %d outside valid period %d (now: %d)', counter, valid, now);
+        // counter fail resp
+        return sendResponse(sendParams, { type: Payload.RespType.CounterFail, counter: now });
+    }
+
+    // check uuid
+    const res = await RequestStore.addIfAbsent(state.db, requestId, counter);
+    if (res === RequestStore.AddRes.Duplicate) {
+        log.info('duplicate request id:', requestId);
+        // duplicate fail resp
+        return sendResponse(sendParams, { type: Payload.RespType.DuplicateFail });
+    }
+
+    // do actual endpoint request
+    const fetchStartedAt = performance.now();
+    const resFetch = await EndpointApi.fetchUrl(
+        ops.pinnedFetch,
+        reqPayload.endpoint,
+        reqPayload,
+    ).catch((err: Error) => {
+        log.error('error doing RPC req on %s with %o: %o', reqPayload.endpoint, reqPayload, err);
+        // HTTP critical fail response
+        const resp: Payload.RespPayload = {
+            type: Payload.RespType.Error,
+            reason: err.toString(),
+        };
+        return sendResponse(sendParams, resp);
+    });
+    if (!resFetch) {
+        return;
+    }
+
+    const fetchDur = Math.round(performance.now() - fetchStartedAt);
+    const resp: Payload.RespPayload = {
+        type: Payload.RespType.Resp,
+        ...resFetch,
+    };
+    return sendResponse(sendParams, addLatencies(reqPayload, resp, { fetchDur, recvAt }));
 }
 
 function removeExpiredSegmentResponses(state: State) {
