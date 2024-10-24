@@ -31,7 +31,7 @@
         "typescript": "^5.4.5"
     },
     "dependencies": {
-        "@hoprnet/uhttp-lib": "^3.8.0",
+        "@hoprnet/uhttp-lib": "^3.9.0-beta.1",
         "debug": "^4.3.4",
         "sqlite3": "^5.1.7",
         "ws": "^8.18.0"
