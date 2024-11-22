@@ -1,6 +1,6 @@
 {
     "name": "uhttp-exit-app",
-    "version": "3.4.0",
+    "version": "4.0.0-a.1",
     "description": "u(nlinked)HTTP exit application",
     "author": "HOPR Association",
     "main": "src/index.ts",
